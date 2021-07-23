@@ -1,0 +1,21 @@
+{
+    "name": "sue/model",
+    "description": "laravel-style model",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Sue\\Model\\": "src/"
+        }
+    },
+    "require": {
+        "php": ">=5.4.0"
+    },
+    "authors": [
+        {
+            "name": "heroest",
+            "email": "kakashi@live.cn"
+        }
+    ],
+    "minimum-stability": "dev"
+}
