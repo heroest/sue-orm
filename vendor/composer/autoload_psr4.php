@@ -6,5 +6,5 @@ $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname($vendorDir);
 
 return array(
-    'Sue\\LaravelModel\\' => array($baseDir . '/src'),
+    'Sue\\Model\\' => array($baseDir . '/src'),
 );
