@@ -3,7 +3,7 @@
 namespace Sue\Model\Driver\PDO;
 
 use PDO;
-use Exception;
+use Sue\Model\Common\DatabaseException;
 use Sue\Model\Driver\Contracts\ConnectionInterface;
 
 class Connection implements ConnectionInterface
@@ -13,6 +13,10 @@ class Connection implements ConnectionInterface
 
     public function __construct($mixed)
     {
+        if (!extension_loaded('PDO')) {
+            throw new DatabaseException('PDO extension is required');
+        }
+
         if ($mixed instanceof PDO) {
             $this->link = $mixed;
             return;
@@ -30,6 +34,7 @@ class Connection implements ConnectionInterface
             $options = isset($config['options'])
                         ? array_merge($base_options, $config['options'])
                         : $base_options;
+                        
             $this->link = new PDO($dsn, $config['username'], $config['password'], $options);
         }
     }
