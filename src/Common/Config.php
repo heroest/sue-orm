@@ -2,37 +2,35 @@
 
 namespace Sue\Model\Common;
 
-use Sue\Model\Common\AbstractSingleton;
-
-class Config extends AbstractSingleton
+class Config
 {
-    private $storage = [];
+    private static $storage = [];
 
-    public function get($key, $default_value = null)
+    public static function get($key, $default_value = null)
     {
-        return isset($this->storage[$key])
-            ? $this->storage[$key]
+        return isset(self::$storage[$key])
+            ? self::$storage[$key]
             : $default_value;
     }
 
-    public function set($key, $val)
+    public static function set($key, $val)
     {
-        $this->storage[$key] = $val;
+        self::$storage[$key] = $val;
     }
 
     /**
-     * 当key不存在的时候设置key,val
+     * 当key不存在的时候设置key
      *
      * @param string $key
      * @param mixed $val
      * @return mixed
      */
-    public function setnx($key, $val)
+    public static function setnx($key, $val)
     {
-        if (array_key_exists($key, $this->storage)) {
+        if (array_key_exists($key, self::$storage)) {
             return false;
         } else {
-            $this->storage[$key] = $val;
+            self::$storage[$key] = $val;
             return true;
         }
     }

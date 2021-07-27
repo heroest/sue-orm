@@ -9,9 +9,23 @@ interface ConnectionInterface
      *
      * @param string $sql
      * @param array $params
-     * @return array
+     * @return array|boolean
      */
     public function query($sql, $params = []);
+
+    /**
+     * 获取最后一次插入的id
+     *
+     * @return string
+     */
+    public function lastInsertId();
+
+    /**
+     * 获取修改行数
+     *
+     * @return int|float
+     */
+    public function affectedRows();
 
     /**
      * 开启数据库事务
@@ -40,4 +54,11 @@ interface ConnectionInterface
      * @return void
      */
     public function rollback();
+
+    /**
+     * 获取SQL日志
+     *
+     * @return array
+     */
+    public function getQueryLog();
 }

@@ -18,9 +18,9 @@ class ConnectionPool
     }
 
     /**
-     * 获取诗句哭链接池
+     * 获取数据库链接池
      *
-     * @return null|ConnectionPoolInterface
+     * @return self
      * @throws InvalidArgumentException
      */
     public static function build()
@@ -29,8 +29,7 @@ class ConnectionPool
             return self::$instance;
         }
 
-        $config = Config::getInstance();
-        if (null !== $driver = $config->get('driver')) {
+        if (null !== $driver = Config::get('driver')) {
             $driver = strtolower($driver);
         } else {
             foreach (['PDO', 'mysqli', 'mysql'] as $extension) {
@@ -84,6 +83,8 @@ class ConnectionPool
             return $this->pool[$connection_name];
         }
         $class = $this->connectionClass;
-        return $this->pool[$connection_name] = new $class($mixed);
+        $connection = $this->pool[$connection_name] = new $class($mixed);
+        Config::setnx('default_connection', $connection_name);
+        return $connection;
     }
 }

@@ -5,6 +5,7 @@ namespace Sue\Model\Model\Laravel;
 use Exception;
 use Closure;
 use InvalidArgumentException;
+use BadMethodCallException;
 use ReflectionMethod;
 use Sue\Model\Common\DatabaseException;
 use Sue\Model\Common\SQLConst;
@@ -12,20 +13,23 @@ use Sue\Model\Driver\ConnectionPool;
 use Sue\Model\Driver\Contracts\ConnectionInterface;
 use Sue\Model\Model\Contracts\ComponentInterface;
 use Sue\Model\Model\Component\Where;
+use Sue\Model\Model\Component\Expression;
+use Sue\Model\Model\Component\SetValue;
 
 class Query
 {
-    private static $queryLog = [];
     /** @var ConnectionPool $connectionPool */
     private $connectionPool = null;
-
-    private $model;
     /** @var ConnectionInterface $connection */
     private $connection;
+
+    private $model;
     private $table;
 
-    private $lastInsertId;
-    private $affectedRows;
+    /** @var string $lastInsertId */
+    private $lastInsertId = '';
+    /** @var int|float $affectedRows */
+    private $affectedRows = 0;
 
     private $select = [];
     private $where = [];
@@ -50,10 +54,20 @@ class Query
         return $this;
     }
 
-    public function table($table, $as = null)
+    public function from($table, $as = null)
     {
         $this->table = $as ? "{$table} AS {$as}" : $table;
         return $this;
+    }
+
+    /**
+     * from
+     *
+     * @return self
+     */
+    public function table()
+    {
+        return call_user_func_array([$this, 'from'], func_get_args());
     }
 
     public function select()
@@ -72,34 +86,64 @@ class Query
 
     public function where()
     {
-        $this->abstractWhere(func_get_args(), false, SQLConst::SQL_AND);
+        $this->abstractWhere(func_get_args(), '', SQLConst::SQL_AND);
         return $this;
     }
 
     public function orWhere()
     {
-        $this->abstractWhere(func_get_args(), false, SQLConst::SQL_OR);
+        $this->abstractWhere(func_get_args(), '', SQLConst::SQL_OR);
         return $this;
     }
 
     public function whereIn()
     {
-        $this->abstractWhere(func_get_args(), 'IN', SQLConst::SQL_AND);
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_IN, SQLConst::SQL_AND);
     }
 
     public function orWhereIn()
     {
-        $this->abstractWhere(func_get_args(), 'IN', SQLConst::SQL_OR);
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_IN, SQLConst::SQL_OR);
     }
 
     public function whereNotIn()
     {
-
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_IN, SQLConst::SQL_AND);
     }
 
     public function orWhereNotIn()
     {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_IN, SQLConst::SQL_OR);
+    }
 
+    public function whereLike()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_LIKE, SQLConst::SQL_AND);
+    }
+
+    public function orWhereLike()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_LIKE, SQLConst::SQL_OR);
+    }
+
+    public function whereNotLike()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_LIKE, SQLConst::SQL_AND);
+    }
+
+    public function orWhereNotLike()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_LIKE, SQLConst::SQL_OR);
+    }
+
+    public function whereBetween()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_BETWEEN, SQLConst::SQL_AND);
+    }
+
+    public function orWhereBetween()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_BETWEEN, SQLConst::SQL_OR);
     }
 
     public function offset($offset)
@@ -129,7 +173,7 @@ class Query
      */
     public function get()
     {
-        return $this->executeSelectQuery();        
+        return $this->executeSelectQuery();
     }
 
     /**
@@ -142,25 +186,91 @@ class Query
         $this->offset(0);
         $this->limit(1);
         $result = $this->executeSelectQuery();
-        return $result ? null : array_pop($result);
+        return $result ? array_pop($result) : null;
     }
 
-    private function abstractWhere(array $params, $op = false, $word = SQLConst::SQL_AND)
+    /**
+     * 更新数据
+     *
+     * @param array $data
+     * @return int|float rows_affected
+     */
+    public function update(array $data)
     {
+        return $this->executeUpdateQuery($data);
+    }
+
+    /**
+     * 开启数据库事务
+     *
+     * @return boolean
+     */
+    public function beginTransaction()
+    {
+        return $this->connection->beginTransaction();
+    }
+
+    /**
+     * 判断是否处于数据库事务中
+     *
+     * @return boolean
+     */
+    public function inTransaction()
+    {
+        return $this->connection->inTransaction();
+    }
+
+    /**
+     * 事务提交
+     *
+     * @return boolean
+     */
+    public function commit()
+    {
+        return $this->connection->commit();
+    }
+
+    /**
+     * 事务回滚
+     *
+     * @return boolean
+     */
+    public function rollback()
+    {
+        return $this->connection->rollback();
+    }
+
+    /**
+     * where条件拼接
+     *
+     * @param array $params
+     * @param string $op
+     * @param string $boolean
+     * @return void
+     */
+    private function abstractWhere(array $params, $op = '', $boolean = SQLConst::SQL_AND)
+    {
+        $params = $this->normalizeParams($params, $op);
         if ($this->where and SQLConst::SQL_LEFTP !== end($this->where)) {
-            $this->where[] = $word;
+            $this->where[] = $boolean;
         }
 
         $count_params = count($params);
         if (3 === $count_params) {
             list($key, $op, $val) = $params;
-            $this->where[] = new Where([$op, $key, $val]);
+            if (null === $val) {
+                $this->where[] = new Expression("{$key} {$op} NULL");
+            } else {
+                $this->where[] = new Where([$op, $key, $val]);
+            }
         } elseif (2 === $count_params) {
             list($key, $val) = $params;
-            $op = (false !== $op)
-                    ? $op
-                    : (null === $val ? 'IS' : '=');
-            $this->where[] = new Where([$op, $key, $val]);
+            if (null === $val) {
+                $this->where[] = new Expression("{$key} IS NULL");
+            } else {
+                $op = $op ?: '=';
+                $this->where[] = new Where([$op, $key, $val]);
+            }
         } elseif (1 === $count_params) {
             $param = $params[0];
             if ($param instanceof Closure) {
@@ -171,54 +281,134 @@ class Query
                 foreach ($param as $condition) {
                     call_user_func_array([$this, 'where'], $condition);
                 }
+            } else {
+                $this->where[] = new Expression($param);
             }
-        } else {
-            throw new InvalidArgumentException('Invalid number of parameters');
         }
     }
 
+    private function normalizeParams(array $params, $op)
+    {
+        $max_len = $count_params = count($params);
+        switch ($op) {
+            case '':
+                $max_len = 3;
+                break;
+
+            case SQLConst::SQL_IN:
+            case SQLConst::SQL_NOT_IN:
+            case SQLConst::SQL_BETWEEN:
+            case SQLConst::SQL_NOT_BETWEEN:
+                $max_len = 2;
+                break;
+        }
+        return array_slice($params, 0, $max_len);
+    }
+
+
     private function executeSelectQuery()
+    {
+        $this->beforeQuery();
+        try {
+            list($sql, $params) = $this->compileSelectQuery();
+            return $this->connection->query($sql, $params);
+        } catch (Exception $e) {
+            throw $e;
+        } finally {
+            $this->afterQuery();
+        }
+    }
+
+    private function compileSelectQuery()
     {
         $components = [];
 
         //SELECT
-        $components[] = 'SELECT';
+        $components[] = SQLConst::SQL_SELECT;
         $components[] = $this->select ? implode(',', $this->select) : '*';
 
         //FROM
-        $components[] = "FROM {$this->table}";
+        $components[] = SQLConst::SQL_FROM;
+        $components[] = $this->table;
         
         //JOIN
 
         //Where
-        $components[] = 'WHERE';
-        $components = array_merge($components, $this->where);
+        if ($this->where) {
+            $components[] = SQLConst::SQL_WHERE;
+            $components = array_merge($components, $this->where);
+        }
         
         //ORDER
 
         //LIMITE
         if ($this->limit) {
-            $components[] = "LIMIT {$this->offset},{$this->limit}";
+            $components[] = SQLConst::SQL_LIMIT;
+            $components[] = "{$this->offset},{$this->limit}";
         }
 
-        list($sql, $params) = $this->compile($components);
+        return $this->assemble($components);
+    }
 
-        $raw = $this->getRawSQL($sql, $params);
-        try {
-            return $this->connection->query($sql, $params);
-        } catch (Exception $e) {
-            throw new DatabaseException("Fail to execute SQL: {$raw}", 907, $e);
-        } finally {
-            self::$queryLog[] = $raw;
+    private function executeUpdateQuery($data)
+    {
+        $this->beforeQuery();
+
+        $components = [];
+
+        //UPDATE
+        $components[] = SQLConst::SQL_UPDATE;
+        $components[] = $this->table;
+
+        //SET
+        $components[] = new SetValue($data);
+
+        //Where
+        if ($this->where) {
+            $components[] = SQLConst::SQL_WHERE;
+            $components = array_merge($components, $this->where);
         }
+        
+        //ORDER
+
+        //LIMITE
+        if ($this->limit) {
+            $components[] = SQLConst::SQL_LIMIT;
+            $components[] = "{$this->offset},{$this->limit}";
+        }
+
+        list($sql, $params) = $this->assemble($components);
+        $this->connection->query($sql, $params);
+        return $this->affectedRows = $this->connection->affectedRows();
+    }
+
+    private function executeInsertQuery()
+    {
+
+    }
+
+    private function executeDeleteQuery()
+    {
+
     }
 
     public function getQueryLog()
     {
-        return self::$queryLog;
+        return $this->connection->getQueryLog();
     }
 
-    private function compile(array $components)
+    private function beforeQuery()
+    {
+        $this->lastInsertId = '';
+        $this->affectedRows = 0;
+    }
+
+    private function afterQuery()
+    {
+        //todo
+    }
+
+    private function assemble(array $components)
     {
         $chunks = [];
         $params = [];
@@ -229,33 +419,5 @@ class Query
             }
         }
         return [implode(' ', $chunks), $params];
-    }
-
-    /**
-     * 返回执行的SQL
-     *
-     * @param string $sql
-     * @param array $params
-     * @return string
-     */
-    private function getRawSQL($sql, $params)
-    {
-        $line = $sql;
-        foreach ($params as $param) {
-            if (null === $param) {
-                $param = 'null';
-            } elseif (is_int($param)) {
-                $param = (int) $param;
-            } else {
-                $param = (string) $param;
-                $param = "'{$param}'";
-            }
-
-            $index = stripos($line, '?', 0);
-            $head = substr($line, 0, $index);
-            $tail = substr($line, $index + 1);
-            $line = "{$head}{$param}{$tail}";
-        }
-        return $line;
     }
 }
