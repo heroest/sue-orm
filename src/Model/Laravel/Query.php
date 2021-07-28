@@ -9,6 +9,7 @@ use BadMethodCallException;
 use ReflectionMethod;
 use Sue\Model\Common\DatabaseException;
 use Sue\Model\Common\SQLConst;
+use Sue\Model\Common\Config;
 use Sue\Model\Driver\ConnectionPool;
 use Sue\Model\Driver\Contracts\ConnectionInterface;
 use Sue\Model\Model\Contracts\ComponentInterface;
@@ -207,7 +208,7 @@ class Query
      */
     public function beginTransaction()
     {
-        return $this->connection->beginTransaction();
+        return $this->getConnection()->beginTransaction();
     }
 
     /**
@@ -217,7 +218,7 @@ class Query
      */
     public function inTransaction()
     {
-        return $this->connection->inTransaction();
+        return $this->getConnection()->inTransaction();
     }
 
     /**
@@ -227,7 +228,7 @@ class Query
      */
     public function commit()
     {
-        return $this->connection->commit();
+        return $this->getConnection()->commit();
     }
 
     /**
@@ -237,7 +238,21 @@ class Query
      */
     public function rollback()
     {
-        return $this->connection->rollback();
+        return $this->getConnection()->rollback();
+    }
+
+    /**
+     * 获取一个链接，如果没设置的话获取默认链接
+     *
+     * @return ConnectionInterface
+     */
+    private function getConnection()
+    {
+        if ($this->connection) {
+            return $this->connection;
+        } else {
+            return $this->connectionPool->connection(Config::get('default_connection', ''));
+        }
     }
 
     /**
@@ -311,7 +326,7 @@ class Query
         $this->beforeQuery();
         try {
             list($sql, $params) = $this->compileSelectQuery();
-            return $this->connection->query($sql, $params);
+            return $this->getConnection()->query($sql, $params);
         } catch (Exception $e) {
             throw $e;
         } finally {
@@ -378,8 +393,8 @@ class Query
         }
 
         list($sql, $params) = $this->assemble($components);
-        $this->connection->query($sql, $params);
-        return $this->affectedRows = $this->connection->affectedRows();
+        $this->getConnection()->query($sql, $params);
+        return $this->affectedRows = $this->getConnection()->affectedRows();
     }
 
     private function executeInsertQuery()
@@ -394,7 +409,7 @@ class Query
 
     public function getQueryLog()
     {
-        return $this->connection->getQueryLog();
+        return $this->getConnection()->getQueryLog();
     }
 
     private function beforeQuery()
@@ -407,7 +422,13 @@ class Query
     {
         //todo
     }
-
+    
+    /**
+     * 拼接片段
+     *
+     * @param array $components
+     * @return (string|array)[]
+     */
     private function assemble(array $components)
     {
         $chunks = [];

@@ -71,7 +71,7 @@ class ConnectionPool
     }
 
     /**
-     * 添加一个链接并立即返回
+     * 添加一个链接并返回这个链接
      *
      * @param string $connection_name
      * @param mixed $mixed

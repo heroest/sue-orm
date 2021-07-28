@@ -15,9 +15,6 @@ class Connection implements ConnectionInterface
     /** @var PDO $link */
     private $link;
     private $queryLog = [];
-
-
-    private $lastInsertId = '';
     private $affectedRows = 0;
 
     public function __construct($mixed)
@@ -62,7 +59,6 @@ class Connection implements ConnectionInterface
             $statement = $this->link->prepare($sql);
             $statement->execute($params ?: null);
             $this->appendQueryLog($sql, $params);
-            $this->lastInsertId = $this->link->lastInsertId();
             $this->affectedRows = $statement->rowCount();
             return $statement->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
@@ -75,7 +71,7 @@ class Connection implements ConnectionInterface
     /** @inheritDoc */
     public function lastInsertId()
     {
-        return $this->lastInsertId;
+        return (string) $this->link->lastInsertId();
     }
 
     /** @inheritDoc */

@@ -32,6 +32,6 @@ class SetValue implements ComponentInterface
 
     public function values()
     {
-        return [];
+        return $this->values;
     }
 }

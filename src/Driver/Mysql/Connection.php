@@ -2,53 +2,133 @@
 
 namespace Sue\Model\Driver\Mysql;
 
+use InvalidArgumentException;
 use Sue\Model\Common\DatabaseException;
 use Sue\Model\Driver\Contracts\ConnectionInterface;
 
 class Connection implements ConnectionInterface
 {
     /** @var resource $link */
-    private $link;
+    private $link = null;
+    private $queryLog = [];
 
     public function __construct($mixed)
     {
-        if (!function_exists('mysql_connect')) {
+        if (!extension_loaded('mysql')) {
             throw new DatabaseException('Mysql extension is required');
         }
 
-        if (is_resource($mixed)) {
+        if ($this->isMysqlLink($mixed)) {
             $this->link = $mixed;
-        } else {
+        } elseif (is_array($mixed)) {
             $config = $mixed;
             $charset = isset($config['charset']) ? $config['charset'] : 'utf8mb4';
             $port = isset($config['port']) ? $config['port'] : 3306;
             $host = "{$config['host']}:{$port}";
             $this->link = mysql_connect(
-                $host, 
-                $config['username'], 
-                $config['passowrd'],
+                $host,
+                $config['username'],
+                $config['password'],
                 true
             );
+            if (!$this->link) {
+                $this->throwException();
+            }
+            mysql_select_db($config['dbname']);
             mysql_query("SET NAMES {$charset} COLLATE utf8mb4_unicode_ci", $this->link);
+        } else {
+            throw new InvalidArgumentException('Unexpected type of paramenter: ' . gettype($mixed));
         }
     }
 
+    /** @inheritDoc */
     public function query($sql, $params = [])
     {
         foreach ($params as $param) {
-            $param = is_string($param) 
-                    ? ("'" . mysql_real_escape_string($param, $this->link) . "'")
-                    : $param;
+            $param = is_string($param)
+                ? ("'" . mysql_real_escape_string($param, $this->link) . "'")
+                : (string) $param;
             $sql = self::bindParam($sql, $param);
         }
-        $result = mysql_query($sql, $this->link);
-        $list = [];
-        while ($row = mysql_fetch_assoc($result)) {
-            $list[] = $row;
+
+        $this->appendQueryLog($sql);
+        if (false === $result = mysql_query($sql, $this->link)) {
+            $this->throwException();
         }
-        return $list;
+
+        if (true === $result) {
+            return $result;
+        } else {
+            $list = [];
+            while ($row = mysql_fetch_assoc($result)) {
+                $list[] = $row;
+            }
+            mysql_free_result($result);
+            return $list;
+        }
     }
 
+    /** @inheritDoc */
+    public function lastInsertId()
+    {
+        return (string) mysql_insert_id($this->link);
+    }
+
+    /** @inheritDoc */
+    public function affectedRows()
+    {
+        return mysql_affected_rows($this->link);
+    }
+
+    /** @inheritDoc */
+    public function beginTransaction()
+    {
+    }
+
+    /** @inheritDoc */
+    public function inTransaction()
+    {
+    }
+
+    /** @inheritDoc */
+    public function commit()
+    {
+    }
+
+    /** @inheritDoc */
+    public function rollback()
+    {
+    }
+
+    /** @inheritDoc */
+    public function getQueryLog()
+    {
+        return $this->queryLog;
+    }
+
+    private function appendQueryLog($sql)
+    {
+        $this->queryLog[] = $sql;
+    }
+
+    /**
+     * 查询是否是mysql建立的链接
+     *
+     * @param resource $resource
+     * @return boolean
+     */
+    private function isMysqlLink($resource)
+    {
+        return is_resource($resource) and false !== stripos(get_resource_type($resource), 'mysql');
+    }
+
+    /**
+     * 拼接一个参数
+     *
+     * @param string $sql
+     * @param string $param
+     * @return string
+     */
     private static function bindParam($sql, $param)
     {
         $index = stripos($sql, '?', 0);
@@ -57,23 +137,20 @@ class Connection implements ConnectionInterface
         return "{$head}{$param}{$tail}";
     }
 
-    public function beginTransaction()
+    /**
+     * 抛出异常
+     *
+     * @return void
+     * @throws DatabaseException
+     */
+    private function throwException()
     {
-
-    }
-
-    public function inTransaction()
-    {
-
-    }
-
-    public function commit()
-    {
-
-    }
-
-    public function rollback()
-    {
-
+        if ('' !== $msg = mysql_error($this->link)) {
+            $code = mysql_errno($this->link);
+        } else {
+            $msg = 'Unknown Error';
+            $code = 907;
+        }
+        throw new DatabaseException($msg, $code);
     }
 }
