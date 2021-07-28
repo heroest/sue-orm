@@ -5,12 +5,6 @@ require 'vendor/autoload.php';
 use Sue\Model\Model\Laravel\DB;
 
 $db = new \Sue\Model\Model\Laravel\Query();
-$db->addConnection('default', [
-    'host' => 'rm-uf67h6texeyf9f325fo.mysql.rds.aliyuncs.com',
-    'dbname' => 'crm_dev',
-    'username' => 'crm_dev',
-    'password' => 'YKdYXQfhjjzDr281'
-]);
 
 DB::beginTransaction();
 
