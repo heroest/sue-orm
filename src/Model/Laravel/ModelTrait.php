@@ -1,6 +1,6 @@
 <?php
 
-namespace Sue\Model\Model\Laravel;
+namespace Sue\LegacyModel\Model\Laravel;
 
 trait ModelTrait
 {

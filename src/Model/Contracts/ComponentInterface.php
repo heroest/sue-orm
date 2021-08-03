@@ -1,6 +1,6 @@
 <?php
 
-namespace Sue\Model\Model\Contracts;
+namespace Sue\LegacyModel\Model\Contracts;
 
 interface ComponentInterface
 {

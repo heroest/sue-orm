@@ -1,8 +1,8 @@
 <?php
 
-namespace Sue\Model\Common;
+namespace Sue\LegacyModel\Common;
 
-use Sue\Model\Model\Component\Expression;
+use Sue\LegacyModel\Model\Component\Expression;
 
 class Util
 {

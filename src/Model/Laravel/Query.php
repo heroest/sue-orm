@@ -1,21 +1,21 @@
 <?php
 
-namespace Sue\Model\Model\Laravel;
+namespace Sue\LegacyModel\Model\Laravel;
 
 use Exception;
 use Closure;
 use InvalidArgumentException;
 use BadMethodCallException;
 use ReflectionMethod;
-use Sue\Model\Common\DatabaseException;
-use Sue\Model\Common\SQLConst;
-use Sue\Model\Common\Config;
-use Sue\Model\Driver\ConnectionPool;
-use Sue\Model\Driver\Contracts\ConnectionInterface;
-use Sue\Model\Model\Contracts\ComponentInterface;
-use Sue\Model\Model\Component\Where;
-use Sue\Model\Model\Component\Expression;
-use Sue\Model\Model\Component\SetValue;
+use Sue\LegacyModel\Common\DatabaseException;
+use Sue\LegacyModel\Common\SQLConst;
+use Sue\LegacyModel\Common\Config;
+use Sue\LegacyModel\Driver\ConnectionPool;
+use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
+use Sue\LegacyModel\Model\Contracts\ComponentInterface;
+use Sue\LegacyModel\Model\Component\Where;
+use Sue\LegacyModel\Model\Component\Expression;
+use Sue\LegacyModel\Model\Component\SetValue;
 
 class Query
 {
@@ -199,6 +199,17 @@ class Query
     public function update(array $data)
     {
         return $this->executeUpdateQuery($data);
+    }
+
+    /**
+     * 插入数据
+     *
+     * @param array $data
+     * @return int $last_inserted_id
+     */
+    public function insert(array $data)
+    {
+        return $this->executeInsertQuery($data);
     }
 
     /**
@@ -397,7 +408,7 @@ class Query
         return $this->affectedRows = $this->getConnection()->affectedRows();
     }
 
-    private function executeInsertQuery()
+    private function executeInsertQuery(array $data, $duplicate_handle = '')
     {
 
     }

@@ -1,6 +1,6 @@
 <?php
 
-namespace Sue\Model\Yii;
+namespace Sue\LegacyModel\Yii;
 
 class Query
 {

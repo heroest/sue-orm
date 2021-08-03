@@ -1,6 +1,6 @@
 <?php
 
-namespace Sue\Model\Common;
+namespace Sue\LegacyModel\Common;
 
 class DatabaseException extends \Exception
 {

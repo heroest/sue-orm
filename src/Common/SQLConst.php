@@ -1,6 +1,6 @@
 <?php
 
-namespace Sue\Model\Common;
+namespace Sue\LegacyModel\Common;
 
 abstract class SQLConst
 {
@@ -23,4 +23,8 @@ abstract class SQLConst
     const SQL_LIMIT = 'LIMIT';
     const SQL_UPDATE = 'UPDATE';
     const SQL_SET = 'SET';
+
+    const SQL_INSERT = 'INSERT';
+    const SQL_IGNORE = 'IGNORE';
+    const SQL_ON_DUPLCATE_KEY_UPDATE = 'ON DUPLICATE KEY UPDATE';
 }

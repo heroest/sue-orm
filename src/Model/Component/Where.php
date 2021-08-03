@@ -1,8 +1,8 @@
 <?php
 
-namespace Sue\Model\Model\Component;
+namespace Sue\LegacyModel\Model\Component;
 
-use Sue\Model\Model\Contracts\ComponentInterface;
+use Sue\LegacyModel\Model\Contracts\ComponentInterface;
 
 class Where implements ComponentInterface
 {

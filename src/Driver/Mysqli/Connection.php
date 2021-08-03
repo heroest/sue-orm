@@ -1,18 +1,21 @@
 <?php
 
-namespace Sue\Model\Driver\Mysqli;
+namespace Sue\LegacyModel\Driver\Mysqli;
 
 use mysqli;
 use mysqli_result;
-use Sue\Model\Common\Util;
-use Sue\Model\Common\DatabaseException;
-use Sue\Model\Driver\Contracts\ConnectionInterface;
+use BadMethodCallException;
+use Sue\LegacyModel\Common\Util;
+use Sue\LegacyModel\Common\DatabaseException;
+use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
 
 class Connection implements ConnectionInterface
 {
     /** @var mysqli $link */
     private $link;
     private $queryLog;
+    /** @var boolean $inTransaction */
+    private $inTransaction = false;
 
     public function __construct($mixed)
     {
@@ -62,6 +65,7 @@ class Connection implements ConnectionInterface
         array_unshift($ref, implode('', $types));
         call_user_func_array([$statement, 'bind_param'], $ref);
         $statement->execute();
+        $this->appendQueryLog($sql, $params);
 
         if ($statement->errno) {
             throw new DatabaseException($statement->error, $statement->errno);
@@ -92,30 +96,53 @@ class Connection implements ConnectionInterface
     /** @inheritDoc */
     public function beginTransaction()
     {
+        if ($this->inTransaction()) {
+            throw new BadMethodCallException("Transaction already started");
+        }
+        $this->appendQueryLog('[BEGIN TRANSACTION]');
+        $result = $this->link->begin_transaction();
+        $this->inTransaction = true;
+        return $result;
     }
 
     /** @inheritDoc */
     public function inTransaction()
     {
+        return $this->inTransaction;
     }
 
     /** @inheritDoc */
     public function commit()
     {
+        if (!$this->inTransaction()) {
+            throw new BadMethodCallException("No transaction found");
+        }
+        $this->appendQueryLog('[COMMIT]');
+        $result = $this->link->commit();
+        $this->inTransaction = false;
+        return $result;
     }
 
     /** @inheritDoc */
     public function rollback()
     {
+        if (!$this->inTransaction()) {
+            throw new BadMethodCallException("No transaction found");
+        }
+        $this->appendQueryLog('[ROLLBACK]');
+        $result = $this->link->rollback();
+        $this->inTransaction = false;
+        return $result;
     }
 
     /** @inheritDoc */
     public function getQueryLog()
     {
+        return $this->queryLog;
     }
 
     private function appendQueryLog($sql, array $params = [])
     {
-
+        $this->queryLog[] = Util::compileSQL($sql, $params);
     }
 }

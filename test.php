@@ -2,10 +2,10 @@
 
 require 'vendor/autoload.php';
 
-use Sue\Model\Model\Laravel\DB;
+use Sue\LegacyModel\Model\Laravel\DB;
 
-// \Sue\Model\Common\Config::set('driver', 'mysql');
-$query = new \Sue\Model\Model\Laravel\Query();
+// \Sue\LegacyModel\Common\Config::set('driver', 'mysql');
+$query = new \Sue\LegacyModel\Model\Laravel\Query();
 DB::addConnection('default', [
     'host' => 'localhost',
     'username' => 'root',

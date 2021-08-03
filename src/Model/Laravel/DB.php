@@ -1,10 +1,10 @@
 <?php
 
-namespace Sue\Model\Model\Laravel;
+namespace Sue\LegacyModel\Model\Laravel;
 
-use Sue\Model\Common\Config;
-use Sue\Model\Driver\ConnectionPool;
-use Sue\Model\Driver\Contracts\ConnectionInterface;
+use Sue\LegacyModel\Common\Config;
+use Sue\LegacyModel\Driver\ConnectionPool;
+use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
 
 class DB
 {

@@ -1,10 +1,10 @@
 <?php
 
-namespace Sue\Model\Model\Component;
+namespace Sue\LegacyModel\Model\Component;
 
-use Sue\Model\Model\Contracts\ComponentInterface;
-use Sue\Model\Model\Component\Expression;
-use Sue\Model\Common\SQLConst;
+use Sue\LegacyModel\Model\Contracts\ComponentInterface;
+use Sue\LegacyModel\Model\Component\Expression;
+use Sue\LegacyModel\Common\SQLConst;
 
 class SetValue implements ComponentInterface
 {

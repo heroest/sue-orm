@@ -1,6 +1,6 @@
 <?php
 
-namespace Sue\Model\Driver\Contracts;
+namespace Sue\LegacyModel\Driver\Contracts;
 
 interface ConnectionInterface
 {

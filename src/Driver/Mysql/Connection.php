@@ -1,16 +1,19 @@
 <?php
 
-namespace Sue\Model\Driver\Mysql;
+namespace Sue\LegacyModel\Driver\Mysql;
 
+use BadMethodCallException;
 use InvalidArgumentException;
-use Sue\Model\Common\DatabaseException;
-use Sue\Model\Driver\Contracts\ConnectionInterface;
+use Sue\LegacyModel\Common\DatabaseException;
+use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
 
 class Connection implements ConnectionInterface
 {
     /** @var resource $link */
     private $link = null;
     private $queryLog = [];
+    /** @var boolean $inTransaction */
+    private $inTransaction = false;
 
     public function __construct($mixed)
     {
@@ -83,21 +86,46 @@ class Connection implements ConnectionInterface
     /** @inheritDoc */
     public function beginTransaction()
     {
+        if ($this->inTransaction()) {
+            throw new BadMethodCallException("Transaction already started");
+        }
+        $sql = 'BEGIN;';
+        $this->appendQueryLog($sql);
+        $result = (bool) $this->query($sql);
+        $this->inTransaction = true;
+        return $result;
     }
 
     /** @inheritDoc */
     public function inTransaction()
     {
+        return $this->inTransaction;
     }
 
     /** @inheritDoc */
     public function commit()
     {
+        if (!$this->inTransaction()) {
+            throw new BadMethodCallException("No transaction found");
+        }
+        $sql = 'COMMIT;';
+        $this->appendQueryLog($sql);
+        $result = (bool) $this->query($sql);
+        $this->inTransaction = false;
+        return $result;
     }
 
     /** @inheritDoc */
     public function rollback()
     {
+        if (!$this->inTransaction()) {
+            throw new BadMethodCallException("No transaction found");
+        }
+        $sql = 'ROLLBACK;';
+        $this->appendQueryLog($sql);
+        $result = (bool) $this->query($sql);
+        $this->inTransaction = false;
+        return $result;
     }
 
     /** @inheritDoc */

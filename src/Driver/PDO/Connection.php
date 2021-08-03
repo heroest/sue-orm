@@ -1,14 +1,14 @@
 <?php
 
-namespace Sue\Model\Driver\PDO;
+namespace Sue\LegacyModel\Driver\PDO;
 
 use PDO;
 use Exception;
 use BadMethodCallException;
 use InvalidArgumentException;
-use Sue\Model\Common\DatabaseException;
-use Sue\Model\Driver\Contracts\ConnectionInterface;
-use Sue\Model\Common\Util;
+use Sue\LegacyModel\Common\DatabaseException;
+use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
+use Sue\LegacyModel\Common\Util;
 
 class Connection implements ConnectionInterface
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace Sue\Model\Common;
+namespace Sue\LegacyModel\Common;
 
 abstract class AbstractSingleton
 {

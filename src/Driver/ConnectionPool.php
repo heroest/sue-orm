@@ -1,10 +1,10 @@
 <?php
 
-namespace Sue\Model\Driver;
+namespace Sue\LegacyModel\Driver;
 
 use InvalidArgumentException;
-use Sue\Model\Common\Config;
-use Sue\Model\Driver\Contracts\ConnectionInterface;
+use Sue\LegacyModel\Common\Config;
+use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
 
 class ConnectionPool
 {
@@ -43,13 +43,13 @@ class ConnectionPool
         
         switch ($driver) {
             case 'mysql':
-                return self::$instance = new self('Sue\Model\Driver\Mysql\Connection');
+                return self::$instance = new self('Sue\LegacyModel\Driver\Mysql\Connection');
 
             case 'mysqli':
-                return self::$instance = new self('Sue\Model\Driver\Mysqli\Connection');
+                return self::$instance = new self('Sue\LegacyModel\Driver\Mysqli\Connection');
 
             case 'pdo':
-                return self::$instance = new self('Sue\Model\Driver\PDO\Connection');
+                return self::$instance = new self('Sue\LegacyModel\Driver\PDO\Connection');
             
             default:
                 throw new InvalidArgumentException("Unknown database driver: {$driver}");
