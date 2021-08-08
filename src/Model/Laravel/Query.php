@@ -14,6 +14,7 @@ use Sue\LegacyModel\Driver\ConnectionPool;
 use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
 use Sue\LegacyModel\Model\Contracts\ComponentInterface;
 use Sue\LegacyModel\Model\Component\Where;
+use Sue\LegacyModel\model\Component\Join;
 use Sue\LegacyModel\Model\Component\Expression;
 use Sue\LegacyModel\Model\Component\SetValue;
 
@@ -40,6 +41,8 @@ class Query
     private $join = [];
     private $limit = 0;
     private $offset = 0;
+
+    private $on = [];
 
     public function __construct()
     {
@@ -103,51 +106,93 @@ class Query
     public function whereIn()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_IN, SQLConst::SQL_AND);
+        return $this;
     }
 
     public function orWhereIn()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_IN, SQLConst::SQL_OR);
+        return $this;
     }
 
     public function whereNotIn()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_IN, SQLConst::SQL_AND);
+        return $this;
     }
 
     public function orWhereNotIn()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_IN, SQLConst::SQL_OR);
+        return $this;
     }
 
     public function whereLike()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_LIKE, SQLConst::SQL_AND);
+        return $this;
     }
 
     public function orWhereLike()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_LIKE, SQLConst::SQL_OR);
+        return $this;
     }
 
     public function whereNotLike()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_LIKE, SQLConst::SQL_AND);
+        return $this;
     }
 
     public function orWhereNotLike()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_LIKE, SQLConst::SQL_OR);
+        return $this;
     }
 
     public function whereBetween()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_BETWEEN, SQLConst::SQL_AND);
+        return $this;
     }
 
     public function orWhereBetween()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_BETWEEN, SQLConst::SQL_OR);
+        return $this;
+    }
+
+    public function join()
+    {
+        $this->abstractJoin(func_get_args(), SQLConst::SQL_INNER_JOIN);
+        return $this;
+    }
+
+    public function leftJoin()
+    {
+        $this->abstractJoin(func_get_args(), SQLConst::SQL_LEFT_JOIN);
+        return $this;
+    }
+
+    public function rightJoin()
+    {
+        $this->abstractJoin(func_get_args(), SQLConst::SQL_RIGHT_JOIN);
+        return $this;
+    }
+
+    public function on($from, $op, $to, $boolean = SQLConst::SQL_AND)
+    {
+        if ($this->on) {
+            $this->on[] = $boolean;
+        }
+        $this->on[] = "{$from} {$op} {$to}";
+        return $this;
+    }
+
+    public function orOn($from, $op, $to)
+    {
+        return $this->on($from, $op, $to, SQLConst::SQL_OR);
     }
 
     public function offset($offset)
@@ -280,7 +325,7 @@ class Query
      */
     private function abstractWhere(array $params, $op = '', $boolean = SQLConst::SQL_AND)
     {
-        $params = $this->normalizeParams($params, $op);
+        $params = Where::normalizeParams($params, $op);
         if ($this->where and SQLConst::SQL_LEFTP !== end($this->where)) {
             $this->where[] = $boolean;
         }
@@ -317,24 +362,26 @@ class Query
         }
     }
 
-    private function normalizeParams(array $params, $op)
+    private function abstractJoin(array $params, $op = '')
     {
-        $max_len = $count_params = count($params);
-        switch ($op) {
-            case '':
-                $max_len = 3;
+        $this->on = [];
+        $params = Join::normalizeParams($params, $op);
+        $joined = array_shift($params);
+        
+        switch (count($params)) {
+            case 3:
+                list($match_from, $op, $match_to) = $params;
+                $this->on($match_from, $op, $match_to);
                 break;
 
-            case SQLConst::SQL_IN:
-            case SQLConst::SQL_NOT_IN:
-            case SQLConst::SQL_BETWEEN:
-            case SQLConst::SQL_NOT_BETWEEN:
-                $max_len = 2;
+            case 1:
+                $closure = current($params);
+                $closure($this);
                 break;
         }
-        return array_slice($params, 0, $max_len);
+        $this->join[$joined] = new Join([$joined, $op, implode(' ', $this->on)]);
+        $this->on = [];
     }
-
 
     private function executeSelectQuery()
     {
@@ -362,6 +409,9 @@ class Query
         $components[] = $this->table;
         
         //JOIN
+        if ($this->join) {
+            $components = array_merge($components, array_values($this->join));
+        }
 
         //Where
         if ($this->where) {

@@ -27,4 +27,8 @@ abstract class SQLConst
     const SQL_INSERT = 'INSERT';
     const SQL_IGNORE = 'IGNORE';
     const SQL_ON_DUPLCATE_KEY_UPDATE = 'ON DUPLICATE KEY UPDATE';
+
+    const SQL_INNER_JOIN = 'INNER JOIN';
+    const SQL_LEFT_JOIN = 'LEFT JOIN';
+    const SQL_RIGHT_JOIN = 'RIGHT JOIN';
 }

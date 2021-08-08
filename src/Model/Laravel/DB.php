@@ -48,10 +48,7 @@ class DB
      */
     public static function beginTransaction($connection_name = '')
     {
-        $connection = $connection_name 
-            ? (ConnectionPool::build())->connection($connection_name)
-            : self::defaultConnection();
-        return $connection->beginTransaction();
+        return self::getConnection($connection_name)->beginTransaction();
     }
 
     /**
@@ -62,10 +59,7 @@ class DB
      */
     public static function inTransaction($connection_name = '')
     {
-        $connection = $connection_name 
-            ? (ConnectionPool::build())->connection($connection_name)
-            : self::defaultConnection();
-        return $connection->inTransaction();
+        return self::getConnection($connection_name)->inTransaction();
     }
 
     /**
@@ -76,10 +70,7 @@ class DB
      */
     public static function commit($connection_name = '')
     {
-        $connection = $connection_name 
-            ? (ConnectionPool::build())->connection($connection_name)
-            : self::defaultConnection();
-        return $connection->commit();
+        return self::getConnection($connection_name)->commit();
     }
 
     /**
@@ -90,10 +81,7 @@ class DB
      */
     public static function rollback($connection_name = '')
     {
-        $connection = $connection_name 
-            ? (ConnectionPool::build())->connection($connection_name)
-            : self::defaultConnection();
-        return $connection->rollback();
+        return self::getConnection($connection_name)->rollback();
     }
 
     /**
@@ -104,10 +92,7 @@ class DB
      */
     public static function getQueryLog($connection_name = '')
     {
-        $connection = $connection_name 
-            ? (ConnectionPool::build())->connection($connection_name)
-            : self::defaultConnection();
-        return $connection->getQueryLog();
+        return self::getConnection($connection_name)->getQueryLog();
     }
 
     /**
@@ -122,13 +107,14 @@ class DB
     }
 
     /**
-     * 获取默认链接
+     * 获取连接或者默认链接
      *
      * @return ConnectionInterface
      */
-    private static function defaultConnection()
+    private static function getConnection($connection_name = '')
     {
+        $connection_name = $connection_name ?: Config::get('default_connection', '');
         $pool = ConnectionPool::build();
-        return $pool->connection(Config::get('default_connection', ''));
+        return $pool->connection($connection_name);
     }
 }
