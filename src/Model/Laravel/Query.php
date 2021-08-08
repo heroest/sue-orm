@@ -17,6 +17,9 @@ use Sue\LegacyModel\Model\Component\Where;
 use Sue\LegacyModel\Model\Component\Expression;
 use Sue\LegacyModel\Model\Component\SetValue;
 
+/**
+ * 数据库查询构造器
+ */
 class Query
 {
     /** @var ConnectionPool $connectionPool */
@@ -262,7 +265,8 @@ class Query
         if ($this->connection) {
             return $this->connection;
         } else {
-            return $this->connectionPool->connection(Config::get('default_connection', ''));
+            $default = Config::get('default_connection', '');
+            return $this->connection = $this->connectionPool->connection($default);
         }
     }
 

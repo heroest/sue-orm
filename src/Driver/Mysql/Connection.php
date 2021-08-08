@@ -89,9 +89,7 @@ class Connection implements ConnectionInterface
         if ($this->inTransaction()) {
             throw new BadMethodCallException("Transaction already started");
         }
-        $sql = 'BEGIN;';
-        $this->appendQueryLog($sql);
-        $result = (bool) $this->query($sql);
+        $result = (bool) $this->query('BEGIN;');
         $this->inTransaction = true;
         return $result;
     }
@@ -108,9 +106,7 @@ class Connection implements ConnectionInterface
         if (!$this->inTransaction()) {
             throw new BadMethodCallException("No transaction found");
         }
-        $sql = 'COMMIT;';
-        $this->appendQueryLog($sql);
-        $result = (bool) $this->query($sql);
+        $result = (bool) $this->query('COMMIT;');
         $this->inTransaction = false;
         return $result;
     }
@@ -121,9 +117,7 @@ class Connection implements ConnectionInterface
         if (!$this->inTransaction()) {
             throw new BadMethodCallException("No transaction found");
         }
-        $sql = 'ROLLBACK;';
-        $this->appendQueryLog($sql);
-        $result = (bool) $this->query($sql);
+        $result = (bool) $this->query('ROLLBACK;');
         $this->inTransaction = false;
         return $result;
     }

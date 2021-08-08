@@ -17,5 +17,8 @@
             "email": "kakashi@live.cn"
         }
     ],
-    "minimum-stability": "dev"
+    "minimum-stability": "dev",
+    "require-dev": {
+        "phpunit/phpunit": "9.5.x-dev"
+    }
 }

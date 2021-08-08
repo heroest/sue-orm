@@ -26,4 +26,6 @@ DB::commit();
 var_dump($result);
 
 
+DB::addConnection()
+
 var_dump(DB::getQueryLog());

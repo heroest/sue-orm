@@ -131,9 +131,8 @@ class Connection implements ConnectionInterface
      */
     private function appendQueryLog($sql, $params = [])
     {
-        if ($params) {
-            $sql = Util::compileSQL($sql, $params);
-        }
-        $this->queryLog[] = $sql;
+        $this->queryLog[] = ($params)
+            ? Util::compileSQL($sql, $params)
+            : $sql;
     }
 }

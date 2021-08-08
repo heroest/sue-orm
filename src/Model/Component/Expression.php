@@ -11,7 +11,7 @@ class Expression implements ComponentInterface
     /**
      * SQL表达式
      *
-     * @param string|mixed $statement
+     * @param string $statement
      */
     public function __construct($statement)
     {

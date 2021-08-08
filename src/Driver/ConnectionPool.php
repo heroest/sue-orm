@@ -56,6 +56,11 @@ class ConnectionPool
         }
     }
 
+    public function hasConnection($connection_name)
+    {
+        return isset($this->pool[$connection_name]);
+    }
+
     /**
      * 获取一个链接
      *
@@ -64,7 +69,7 @@ class ConnectionPool
      */
     public function connection($connection_name)
     {
-        if (isset($this->pool[$connection_name])) {
+        if ($this->hasConnection($connection_name)) {
             return $this->pool[$connection_name];
         }
         throw new InvalidArgumentException("Unknown connection name: {$connection_name}");
