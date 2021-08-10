@@ -10,6 +10,7 @@ use ReflectionMethod;
 use Sue\LegacyModel\Common\DatabaseException;
 use Sue\LegacyModel\Common\SQLConst;
 use Sue\LegacyModel\Common\Config;
+use Sue\LegacyModel\Common\Util;
 use Sue\LegacyModel\Driver\ConnectionPool;
 use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
 use Sue\LegacyModel\Model\Contracts\ComponentInterface;
@@ -17,9 +18,11 @@ use Sue\LegacyModel\Model\Component\Where;
 use Sue\LegacyModel\model\Component\Join;
 use Sue\LegacyModel\Model\Component\Expression;
 use Sue\LegacyModel\Model\Component\SetValue;
+use Sue\LegacyModel\Model\Component\InsertValue;
 
 /**
  * 数据库查询构造器
+ * 
  */
 class Query
 {
@@ -31,16 +34,14 @@ class Query
     private $model;
     private $table;
 
-    /** @var string $lastInsertId */
-    private $lastInsertId = '';
-    /** @var int|float $affectedRows */
-    private $affectedRows = 0;
-
     private $select = [];
     private $where = [];
     private $join = [];
     private $limit = 0;
     private $offset = 0;
+    private $orderBy = [];
+    private $groupBy = [];
+
 
     private $on = [];
 
@@ -61,6 +62,13 @@ class Query
         return $this;
     }
 
+    /**
+     * from
+     *
+     * @param string $table
+     * @param string|null $as
+     * @return self
+     */
     public function from($table, $as = null)
     {
         $this->table = $as ? "{$table} AS {$as}" : $table;
@@ -70,11 +78,13 @@ class Query
     /**
      * from
      *
+     * @param string $table
+     * @param string|null $as
      * @return self
      */
-    public function table()
+    public function table($table, $as = null)
     {
-        return call_user_func_array([$this, 'from'], func_get_args());
+        return $this->from($table, $as);
     }
 
     public function select()
@@ -103,6 +113,18 @@ class Query
         return $this;
     }
 
+    public function whereColumn($col_a, $op, $col_b, $boolean = SQLConst::SQL_AND)
+    {
+        $params = [$col_a, $op, new Expression($col_b)];
+        $this->abstractWhere($params, '', $boolean);
+        return $this;
+    }
+
+    public function orWhereColumn($col_a, $op, $col_b)
+    {
+        return $this->whereColumn($col_a, $op, $col_b, SQLConst::SQL_OR);
+    }
+
     public function whereIn()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_IN, SQLConst::SQL_AND);
@@ -124,30 +146,6 @@ class Query
     public function orWhereNotIn()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_IN, SQLConst::SQL_OR);
-        return $this;
-    }
-
-    public function whereLike()
-    {
-        $this->abstractWhere(func_get_args(), SQLConst::SQL_LIKE, SQLConst::SQL_AND);
-        return $this;
-    }
-
-    public function orWhereLike()
-    {
-        $this->abstractWhere(func_get_args(), SQLConst::SQL_LIKE, SQLConst::SQL_OR);
-        return $this;
-    }
-
-    public function whereNotLike()
-    {
-        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_LIKE, SQLConst::SQL_AND);
-        return $this;
-    }
-
-    public function orWhereNotLike()
-    {
-        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_LIKE, SQLConst::SQL_OR);
         return $this;
     }
 
@@ -195,6 +193,39 @@ class Query
         return $this->on($from, $op, $to, SQLConst::SQL_OR);
     }
 
+    public function orderBy($col, $direction = 'asc')
+    {
+        $this->orderBy[] = "{$col} {$direction}";
+        return $this;
+    }
+
+    /**
+     * 重新排序
+     *
+     * @param string $col
+     * @param string $direction
+     * @return self
+     */
+    public function reorder($col, $direction = 'asc')
+    {
+        $this->orderBy = [];
+        return $this->orderBy($col, $direction);
+    }
+
+    /**
+     * 随机排序/随机权重排序
+     *
+     * @param string $by_weight
+     * @return self
+     */
+    public function inRandomOrder($by_weight = '')
+    {
+        $exression = $by_weight 
+            ? new Expression("-LOG(1- RAND())/{$by_weight}")
+            : new Expression('RAND()');
+        return $this->reorder($exression, '');
+    }
+
     public function offset($offset)
     {
         $offset = (int) $offset;
@@ -205,6 +236,11 @@ class Query
         }
     }
 
+    public function skip($offset)
+    {
+        return $this->offset($offset);
+    }
+
     public function limit($limit)
     {
         $limit = (int) $limit;
@@ -213,6 +249,11 @@ class Query
         } else {
             throw new InvalidArgumentException("Invalid limit: {$limit}");
         }
+    }
+
+    public function take($limit)
+    {
+        return $this->limit($limit);
     }
 
     /**
@@ -253,11 +294,24 @@ class Query
      * 插入数据
      *
      * @param array $data
-     * @return int $last_inserted_id
+     * @return string $last_insert_id
      */
     public function insert(array $data)
     {
-        return $this->executeInsertQuery($data);
+        $this->executeInsertQuery($data);
+        return $this->lastInsertId();
+    }
+
+    /**
+     * 插入并无视duplicate
+     *
+     * @param array $data
+     * @return string $last_insert_id
+     */
+    public function insertOrIgnore(array $data)
+    {
+        $this->executeInsertQuery($data, SQLConst::SQL_INSERT_IGNORE);
+        return $this->lastInsertId();
     }
 
     /**
@@ -298,6 +352,16 @@ class Query
     public function rollback()
     {
         return $this->getConnection()->rollback();
+    }
+
+    public function lastInsertId()
+    {
+        return $this->getConnection()->lastInsertId();
+    }
+
+    public function affectedRows()
+    {
+        return $this->getConnection()->affectedRows();
     }
 
     /**
@@ -362,16 +426,16 @@ class Query
         }
     }
 
-    private function abstractJoin(array $params, $op = '')
+    private function abstractJoin(array $params, $join_type = '')
     {
         $this->on = [];
-        $params = Join::normalizeParams($params, $op);
+        $params = Join::normalizeParams($params, $join_type);
         $joined = array_shift($params);
         
         switch (count($params)) {
             case 3:
-                list($match_from, $op, $match_to) = $params;
-                $this->on($match_from, $op, $match_to);
+                list($from, $op, $to) = $params;
+                $this->on($from, $op, $to);
                 break;
 
             case 1:
@@ -379,7 +443,7 @@ class Query
                 $closure($this);
                 break;
         }
-        $this->join[$joined] = new Join([$joined, $op, implode(' ', $this->on)]);
+        $this->join[$joined] = new Join($joined, $join_type, implode(' ', $this->on));
         $this->on = [];
     }
 
@@ -420,8 +484,12 @@ class Query
         }
         
         //ORDER
+        if ($this->orderBy) {
+            $components[] = SQLConst::SQL_ORDER_BY;
+            $components[] = implode(',', $this->orderBy);
+        }
 
-        //LIMITE
+        //LIMIT
         if ($this->limit) {
             $components[] = SQLConst::SQL_LIMIT;
             $components[] = "{$this->offset},{$this->limit}";
@@ -450,11 +518,15 @@ class Query
         }
         
         //ORDER
+        if ($this->orderBy) {
+            $components[] = SQLConst::SQL_ORDER_BY;
+            $components[] = implode(',', $this->orderBy);
+        }
 
-        //LIMITE
+        //LIMIT
         if ($this->limit) {
             $components[] = SQLConst::SQL_LIMIT;
-            $components[] = "{$this->offset},{$this->limit}";
+            $components[] = $this->limit;
         }
 
         list($sql, $params) = $this->assemble($components);
@@ -462,9 +534,31 @@ class Query
         return $this->affectedRows = $this->getConnection()->affectedRows();
     }
 
-    private function executeInsertQuery(array $data, $duplicate_handle = '')
+    /**
+     * 执行INSERT请求
+     *
+     * @param array $data_inserted
+     * @param string $duplicate_handle
+     * @param array $data_updated
+     * @return void
+     */
+    private function executeInsertQuery(
+        array $data_inserted, 
+        $duplicate_handle = '', 
+        array $data_updated = []
+    )
     {
-
+        $components = [];
+        $components[] = ($duplicate_handle === SQLConst::SQL_INSERT_IGNORE)
+            ? SQLConst::SQL_INSERT_IGNORE
+            : SQLConst::SQL_INSERT;
+        $components[] = $this->table;
+        $components[] = new InsertValue($data_inserted);
+        if ($duplicate_handle === SQLConst::SQL_ON_DUPLCATE_KEY_UPDATE) {
+            $components[] = new SetValue($data_updated);
+        }
+        list($sql, $params) = $this->assemble($components);
+        $this->getConnection()->query($sql, $params);
     }
 
     private function executeDeleteQuery()
@@ -499,11 +593,11 @@ class Query
         $chunks = [];
         $params = [];
         foreach ($components as $component) {
-            $chunks[] = trim(strval($component));
+            $chunks[] = (string) $component;
             if ($component instanceof ComponentInterface) {
                 $params = array_merge($params, $component->values());
             }
         }
-        return [implode(' ', $chunks), $params];
+        return [Util::implodeWithSpace($chunks), $params];
     }
 }

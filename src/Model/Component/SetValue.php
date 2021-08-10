@@ -5,6 +5,7 @@ namespace Sue\LegacyModel\Model\Component;
 use Sue\LegacyModel\Model\Contracts\ComponentInterface;
 use Sue\LegacyModel\Model\Component\Expression;
 use Sue\LegacyModel\Common\SQLConst;
+use Sue\LegacyModel\Common\Util;
 
 class SetValue implements ComponentInterface
 {
@@ -18,7 +19,8 @@ class SetValue implements ComponentInterface
             if ($v instanceof Expression) {
                 $items[] = "{$k} = {$v}";
             } else {
-                $items[] = "{$k} = ?";
+                $ph = Util::ph();
+                $items[] = "{$k} = {$ph}";
                 $this->values[] = $v;
             }
         }

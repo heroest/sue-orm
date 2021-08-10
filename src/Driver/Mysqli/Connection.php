@@ -4,6 +4,7 @@ namespace Sue\LegacyModel\Driver\Mysqli;
 
 use mysqli;
 use mysqli_result;
+use Exception;
 use BadMethodCallException;
 use Sue\LegacyModel\Common\Util;
 use Sue\LegacyModel\Common\DatabaseException;
@@ -63,21 +64,27 @@ class Connection implements ConnectionInterface
         }
 
         array_unshift($ref, implode('', $types));
-        call_user_func_array([$statement, 'bind_param'], $ref);
-        $statement->execute();
-        $this->appendQueryLog($sql, $params);
+        try {
+            call_user_func_array([$statement, 'bind_param'], $ref);
+            $statement->execute();
+            $this->appendQueryLog($sql, $params);
 
-        if ($statement->errno) {
-            throw new DatabaseException($statement->error, $statement->errno);
-        } else {
-            $result = $statement->get_result();
-            if ($result instanceof mysqli_result) {
-                $fetched_result = $result->fetch_all(MYSQLI_ASSOC);
-                $result->close();
-                return $fetched_result;
+            if ($statement->errno) {
+                throw new DatabaseException($statement->error, $statement->errno);
             } else {
-                return (bool) $result;
+                $result = $statement->get_result();
+                if ($result instanceof mysqli_result) {
+                    $fetched_result = $result->fetch_all(MYSQLI_ASSOC);
+                    $result->close();
+                    return $fetched_result;
+                } else {
+                    return (bool) $result;
+                }
             }
+        } catch (Exception $e) {
+            $compiled = Util::compileSQL($sql, $params);
+            $msg = "Fail to execute: {$compiled}";
+            throw new DatabaseException($msg, 907, $e);
         }
     }
 

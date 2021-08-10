@@ -3,35 +3,43 @@
 namespace Sue\LegacyModel\Model\Component;
 
 use Sue\LegacyModel\Common\SQLConst;
+use Sue\LegacyModel\Common\Util;
 use Sue\LegacyModel\Model\Contracts\ComponentInterface;
+use Sue\LegacyModel\Model\Component\Expression;
 
 class Where implements ComponentInterface
 {
     private $values = [];
     private $statement = '';
-
+    
     public function __construct(array $params)
     {
         $op = strtoupper(array_shift($params));
         $key = array_shift($params);
+        $ph = Util::ph();
 
         switch ($op) {
-            case 'IN':
-            case 'NOT IN':
+            case SQLConst::SQL_IN:
+            case SQLConst::SQL_NOT_IN:
                 $this->values = $params;
-                $ph = implode(',', array_fill(0, count($params), '?'));
+                $ph = implode(',', array_fill(0, count($params), $ph));
                 $this->statement = "{$key} {$op} ({$ph})";
                 break;
 
-            case 'BETWEEN':
-            case 'NOT BETWEEN':
+            case SQLConst::SQL_BETWEEN:
+            case SQLConst::SQL_NOT_BETWEEN:
                 $this->values = $params;
-                $this->statement = "{$key} {$op} ? AND ?";
+                $this->statement = "{$key} {$op} {$ph} AND {$ph}";
                 break;
 
             default:
-                $this->values[] = array_shift($params);
-                $this->statement = "{$key} {$op} ?";
+                $param = array_shift($params);
+                if ($param instanceof Expression) {
+                    $this->statement = "{$key} {$op} {$param}";
+                } else {
+                    $this->values[] = $param;
+                    $this->statement = "{$key} {$op} {$ph}";
+                }
         }
     }
 

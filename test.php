@@ -3,9 +3,9 @@
 require 'vendor/autoload.php';
 
 use Sue\LegacyModel\Model\Laravel\DB;
+use Sue\LegacyModel\Model\Laravel\Query;
 
-// \Sue\LegacyModel\Common\Config::set('driver', 'mysql');
-$query = new \Sue\LegacyModel\Model\Laravel\Query();
+DB::setDrive('mysql');
 DB::addConnection('default', [
     'host' => 'localhost',
     'username' => 'root',
@@ -13,15 +13,21 @@ DB::addConnection('default', [
     'port' => 3306,
     'dbname' => 'main'
 ]);
+
 DB::beginTransaction();
-
-
-
-$result = $query->connection('default')
-            ->table('user')
-            ->where('id', 3)
-            ->update(['name' => 'php2']);
-
+// $query = new Query();
+// $result = $query->connection('default')
+//             ->table('user', 'u')
+//             ->where(function ($q) {
+//                 $q->where('name', '!=', '');
+//                 $q->orWhere('name', '!=', '123');
+//             })
+//             ->inRandomOrder('age')
+//             ->first();
+$result = DB::table('user')->insert([
+    ['name' => 'zhangxihu', 'age' => 18],
+    ['name' => 'zhangdonghu', 'age' => 19]
+]);
 DB::commit();
 var_dump($result);
 

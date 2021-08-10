@@ -7,17 +7,16 @@ use Sue\LegacyModel\Model\Contracts\ComponentInterface;
 
 class Join implements ComponentInterface
 {
-    private $values = [];
     private $statement = '';
 
-    public function __construct(array $params)
+    public function __construct($joined, $join_type, $on)
     {
-
+        $this->statement = "{$join_type} {$joined} ON {$on}";
     }
 
     public function values()
     {
-        return $this->values;
+        return [];
     }
 
     public function __toString()
@@ -25,21 +24,9 @@ class Join implements ComponentInterface
         return $this->statement;
     }
 
-    public static function normalizeParams(array $params, $op)
+    public static function normalizeParams(array $params, $join_type)
     {
-        $max_len = count($params);
-        switch ($op) {
-            case '':
-                $max_len = 3;
-                break;
-
-            case SQLConst::SQL_IN:
-            case SQLConst::SQL_NOT_IN:
-            case SQLConst::SQL_BETWEEN:
-            case SQLConst::SQL_NOT_BETWEEN:
-                $max_len = 2;
-                break;
-        }
+        $max_len = 4;
         return array_slice($params, 0, $max_len);
     }
 }

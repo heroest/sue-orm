@@ -18,6 +18,17 @@ class DB
     }
 
     /**
+     * 设置数据库驱动类型 (pdo, mysqli, mysql)
+     *
+     * @param string $driver
+     * @return void
+     */
+    public static function setDrive($driver)
+    {
+        return Config::set('driver', $driver);
+    }
+
+    /**
      * 设置数据库连接或返回Query对象
      *
      * @param string $connection_name
@@ -29,6 +40,18 @@ class DB
     }
 
     /**
+     * table
+     *
+     * @param string $table
+     * @param string|null $as
+     * @return Query
+     */
+    public static function table($table, $as = null)
+    {
+        return (new Query())->table($table, $as);
+    }
+
+    /**
      * 添加一条数据库连接的配置
      *
      * @param string $connection_name
@@ -37,7 +60,7 @@ class DB
      */
     public static function addConnection($connection_name, $mixed)
     {
-        (ConnectionPool::build())->addConnection($connection_name, $mixed);
+        ConnectionPool::build()->addConnection($connection_name, $mixed);
     }
 
     /**

@@ -2,9 +2,11 @@
 
 namespace Sue\LegacyModel\Driver\Mysql;
 
+use Exception;
 use BadMethodCallException;
 use InvalidArgumentException;
 use Sue\LegacyModel\Common\DatabaseException;
+use Sue\LegacyModel\Common\Util;
 use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
 
 class Connection implements ConnectionInterface
@@ -54,20 +56,25 @@ class Connection implements ConnectionInterface
             $sql = self::bindParam($sql, $param);
         }
 
-        $this->appendQueryLog($sql);
-        if (false === $result = mysql_query($sql, $this->link)) {
-            $this->throwException();
-        }
-
-        if (true === $result) {
-            return $result;
-        } else {
-            $list = [];
-            while ($row = mysql_fetch_assoc($result)) {
-                $list[] = $row;
+        try {
+            $this->appendQueryLog($sql);
+            if (false === $result = mysql_query($sql, $this->link)) {
+                $this->throwException();
             }
-            mysql_free_result($result);
-            return $list;
+
+            if (true === $result) {
+                return $result;
+            } else {
+                $list = [];
+                while ($row = mysql_fetch_assoc($result)) {
+                    $list[] = $row;
+                }
+                mysql_free_result($result);
+                return $list;
+            }
+        } catch (Exception $e) {
+            $msg = "Fail to execute: {$sql}";
+            throw new DatabaseException($msg, 907, $e);
         }
     }
 
@@ -153,9 +160,11 @@ class Connection implements ConnectionInterface
      */
     private static function bindParam($sql, $param)
     {
-        $index = stripos($sql, '?', 0);
+        $ph = Util::ph();
+        $ph_len = strlen($ph);
+        $index = stripos($sql, $ph, 0);
         $head = substr($sql, 0, $index);
-        $tail = substr($sql, $index + 1);
+        $tail = substr($sql, $index + $ph_len);
         return "{$head}{$param}{$tail}";
     }
 
