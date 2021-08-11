@@ -30,19 +30,17 @@ class Query
     private $connectionPool = null;
     /** @var ConnectionInterface $connection */
     private $connection;
+    private $model = null;
 
-    private $model;
-    private $table;
-
+    private $table = '';
     private $select = [];
+    private $aggregate = '';
     private $where = [];
     private $join = [];
     private $limit = 0;
     private $offset = 0;
     private $orderBy = [];
     private $groupBy = [];
-
-
     private $on = [];
 
     public function __construct()
@@ -50,12 +48,25 @@ class Query
         $this->connectionPool = ConnectionPool::build();
     }
 
+    /**
+     * 设置数据库链接
+     *
+     * @param string $connection_name
+     * @return self
+     */
     public function connection($connection_name)
     {
         $this->connection = $this->connectionPool->connection($connection_name);
         return $this;
     }
 
+    /**
+     * 添加一条数据库链接
+     *
+     * @param string $connection_name
+     * @param mixed $mixed
+     * @return self
+     */
     public function addConnection($connection_name, $mixed)
     {
         $this->connection = $this->connectionPool->addConnection($connection_name, $mixed);
@@ -87,18 +98,48 @@ class Query
         return $this->from($table, $as);
     }
 
+    /**
+     * SELECT， 如果有聚合会无视这里
+     *
+     * @return self
+     */
     public function select()
     {
-        foreach (func_get_args() as $param) {
-            if (is_array($param)) {
-                foreach ($param as $val) {
-                    $this->select[] = $val;
-                }
-            } else {
-                $this->select[] = $param;
-            }
-        }
+        $params = func_get_args();
+        $params = is_array($params[0]) ? $params[0] : $params;
+        $this->select = array_merge($this->select, $params);
         return $this;
+    }
+
+    /**
+     * Count
+     *
+     * @param string $column
+     * @return int|float
+     */
+    public function count($column = '*')
+    {
+        return $this->selectAggregate("COUNT({$column})");
+    }
+
+    public function max($column)
+    {
+        return $this->selectAggregate("MAX({$column})");
+    }
+
+    public function min($column = '*')
+    {
+        return $this->selectAggregate("MIN({$column})");
+    }
+
+    public function avg($column)
+    {
+        return $this->selectAggregate("AVG({$column})");
+    }
+
+    public function sum($column)
+    {
+        return $this->selectAggregate("SUM({$column})");
     }
 
     public function where()
@@ -218,10 +259,10 @@ class Query
      * @param string $by_weight
      * @return self
      */
-    public function inRandomOrder($by_weight = '')
+    public function inRandomOrder($column_weight = '')
     {
-        $exression = $by_weight 
-            ? new Expression("-LOG(1- RAND())/{$by_weight}")
+        $exression = $column_weight 
+            ? new Expression("-LOG(1- RAND())/{$column_weight}")
             : new Expression('RAND()');
         return $this->reorder($exression, '');
     }
@@ -234,6 +275,7 @@ class Query
         } else {
             throw new InvalidArgumentException("Invalid offset: {$offset}");
         }
+        return $this;
     }
 
     public function skip($offset)
@@ -249,6 +291,7 @@ class Query
         } else {
             throw new InvalidArgumentException("Invalid limit: {$limit}");
         }
+        return $this;
     }
 
     public function take($limit)
@@ -266,6 +309,13 @@ class Query
         return $this->executeSelectQuery();
     }
 
+    public function pluck($column)
+    {
+        $this->select = [$column];
+        $result = $this->executeSelectQuery();
+        return $result ? array_values($result) : [];
+    }
+
     /**
      * 查询一条数据
      *
@@ -273,10 +323,59 @@ class Query
      */
     public function first()
     {
-        $this->offset(0);
-        $this->limit(1);
+        $this->offset(0)->limit(1);
         $result = $this->executeSelectQuery();
         return $result ? array_pop($result) : null;
+    }
+
+    /**
+     * 批量查询数据（根据offset位置)
+     *
+     * @param integer $chunk_size
+     * @return \Generator
+     */
+    public function each($chunk_size = 100)
+    {
+        $chunk_size = (int) $chunk_size;
+        $this->offset($offset = 0)->limit($chunk_size);
+        do {
+            $count = 0;
+            if ($result = $this->executeSelectQuery()) {
+                foreach ($result as $row) {
+                    $count++;
+                    yield $row;
+                }
+                $this->offset($offset += $chunk_size);
+            }
+        } while ($count === $chunk_size);
+    }
+
+    /**
+     * 批量查询数据（根据上一次查询的最大id）
+     *
+     * @param integer $chunk_size
+     * @param string $column
+     * @return \Generator
+     */
+    public function eachByColumn($chunk_size = 100, $column = 'id')
+    {
+        $this->limit($chunk_size = (int) $chunk_size);
+        $condition = $this->where;
+        $last_id = '';
+        do {
+            $count = 0;
+            $this->where = $condition;
+            $this->where($column, '>', $last_id);
+            if ($result = $this->executeSelectQuery()) {
+                foreach ($result as $row) {
+                    $count++;
+                    yield $row;
+                    if (empty($last_id) or ($last_id < $row[$column])) {
+                        $last_id = $row[$column];
+                    }
+                }
+            }
+        } while ($count === $chunk_size);
     }
 
     /**
@@ -311,6 +410,26 @@ class Query
     public function insertOrIgnore(array $data)
     {
         $this->executeInsertQuery($data, SQLConst::SQL_INSERT_IGNORE);
+        return $this->lastInsertId();
+    }
+
+    /**
+     * 插入并on duplicate update数据
+     *
+     * @param array $data_insert
+     * @param array $data_update
+     * @return string $last_insert_id
+     */
+    public function insertOrUpdate(array $data_insert, array $data_update)
+    {
+        if (Util::is2DArray($data_update)) {
+            throw new BadMethodCallException("Data update must not be 2-d array");
+        }
+        $this->executeInsertQuery(
+            $data_insert, 
+            SQLConst::SQL_ON_DUPLCATE_KEY_UPDATE, 
+            $data_update
+        );
         return $this->lastInsertId();
     }
 
@@ -354,14 +473,31 @@ class Query
         return $this->getConnection()->rollback();
     }
 
+    /**
+     * 最近插入数据的id（批量插入的话则是第一条数据的id)
+     *
+     * @return string
+     */
     public function lastInsertId()
     {
         return $this->getConnection()->lastInsertId();
     }
 
+    /**
+     * 最近一次操作影响的数据行数
+     *
+     * @return int|float
+     */
     public function affectedRows()
     {
         return $this->getConnection()->affectedRows();
+    }
+
+    private function selectAggregate($aggregate)
+    {
+        $this->aggregate = $aggregate;
+        $result = $this->executeSelectQuery();
+        return $result ? (current(current($result)) + 0) : false;
     }
 
     /**
@@ -416,11 +552,13 @@ class Query
                 $this->where[] = SQLConst::SQL_LEFTP;
                 $param($this);
                 $this->where[] = SQLConst::SQL_RIGHTP;
+            } elseif ($param instanceof Expression) {
+                $this->where[] = $param;
             } elseif (is_array($param)) {
                 foreach ($param as $condition) {
                     call_user_func_array([$this, 'where'], $condition);
                 }
-            } else {
+            } else{
                 $this->where[] = new Expression($param);
             }
         }
@@ -466,7 +604,11 @@ class Query
 
         //SELECT
         $components[] = SQLConst::SQL_SELECT;
-        $components[] = $this->select ? implode(',', $this->select) : '*';
+        if ($this->aggregate) {
+            $components[] = $this->aggregate;
+        } else {
+            $components[] = $this->select ? implode(',', $this->select) : '*';
+        }
 
         //FROM
         $components[] = SQLConst::SQL_FROM;
@@ -509,6 +651,7 @@ class Query
         $components[] = $this->table;
 
         //SET
+        $components[] = SQLConst::SQL_SET;
         $components[] = new SetValue($data);
 
         //Where
@@ -555,6 +698,7 @@ class Query
         $components[] = $this->table;
         $components[] = new InsertValue($data_inserted);
         if ($duplicate_handle === SQLConst::SQL_ON_DUPLCATE_KEY_UPDATE) {
+            $components[] = SQLConst::SQL_ON_DUPLCATE_KEY_UPDATE;
             $components[] = new SetValue($data_updated);
         }
         list($sql, $params) = $this->assemble($components);
@@ -563,7 +707,7 @@ class Query
 
     private function executeDeleteQuery()
     {
-
+        //todo
     }
 
     public function getQueryLog()
@@ -575,6 +719,7 @@ class Query
     {
         $this->lastInsertId = '';
         $this->affectedRows = 0;
+        $this->aggregate = '';
     }
 
     private function afterQuery()

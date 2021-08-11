@@ -56,6 +56,7 @@ class Connection implements ConnectionInterface
     public function query($sql, $params = [])
     {
         try {
+            $this->affectedRows = 0;
             $statement = $this->link->prepare($sql);
             $statement->execute($params ?: null);
             $this->appendQueryLog($sql, $params);

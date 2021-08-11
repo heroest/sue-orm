@@ -15,7 +15,7 @@ class InsertValue implements ComponentInterface
     {
         $components = [];
         $components[] = SQLConst::SQL_LEFTP;
-        if(!self::isTwoDimensional($data)) {
+        if(!Util::is2DArray($data)) {
             $data = [$data];
         }
         $components[] = implode(',', array_keys($data[0]));
@@ -42,18 +42,5 @@ class InsertValue implements ComponentInterface
     public function __toString()
     {
         return $this->statement;
-    }
-
-    private static function isTwoDimensional(array $values)
-    {
-        $pre = -1;
-        foreach ($values as $i => $row) {
-            if (1 !== ($i - $pre++)) {
-                return false;
-            } elseif (!is_array($row)) {
-                return false;
-            }
-        }
-        return true;
     }
 }

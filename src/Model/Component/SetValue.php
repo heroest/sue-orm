@@ -24,7 +24,7 @@ class SetValue implements ComponentInterface
                 $this->values[] = $v;
             }
         }
-        $this->statement = SQLConst::SQL_SET . ' ' . implode(', ', $items);
+        $this->statement = implode(', ', $items);
     }
 
     public function __toString()

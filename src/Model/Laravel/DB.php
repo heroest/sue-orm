@@ -40,7 +40,7 @@ class DB
     }
 
     /**
-     * table
+     * 生成一个Query对象，并设置table
      *
      * @param string $table
      * @param string|null $as

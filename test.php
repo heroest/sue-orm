@@ -5,7 +5,7 @@ require 'vendor/autoload.php';
 use Sue\LegacyModel\Model\Laravel\DB;
 use Sue\LegacyModel\Model\Laravel\Query;
 
-DB::setDrive('mysql');
+DB::setDrive('mysqli');
 DB::addConnection('default', [
     'host' => 'localhost',
     'username' => 'root',
@@ -24,12 +24,14 @@ DB::beginTransaction();
 //             })
 //             ->inRandomOrder('age')
 //             ->first();
-$result = DB::table('user')->insert([
-    ['name' => 'zhangxihu', 'age' => 18],
-    ['name' => 'zhangdonghu', 'age' => 19]
-]);
+// $result = DB::table('user')->insertOrUpdate([
+//     ['name' => 'zhangxihu2', 'age' => 18],
+//     ['name' => 'zhangdonghu2', 'age' => 19]
+// ], ['age' => DB::raw('age + 1')]);
+
+$query = DB::table('user')->where('id', '>', 24);
+foreach ($query->eachByColumn(2, 'id') as $row) {
+    print_r($row);
+}
 DB::commit();
-var_dump($result);
-
-
 var_dump(DB::getQueryLog());

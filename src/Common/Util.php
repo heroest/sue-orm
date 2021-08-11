@@ -4,6 +4,7 @@ namespace Sue\LegacyModel\Common;
 
 use Sue\LegacyModel\Model\Component\Expression;
 use Sue\LegacyModel\Common\SQLConst;
+
 class Util
 {
     /**
@@ -60,9 +61,9 @@ class Util
                 $map[$branch[1]] = true;
             }
         }
-        
+
         reset($items);
-        while($current = current($items)) {
+        while ($current = current($items)) {
             $line .= $current;
             if (false === $next = next($items)) {
                 break;
@@ -83,8 +84,21 @@ class Util
         return $line;
     }
 
+    public static function is2DArray(array $values)
+    {
+        $pre = -1;
+        foreach ($values as $i => $row) {
+            if (1 !== ($i - $pre++)) {
+                return false;
+            } elseif (!is_array($row)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static function ph()
     {
-        return Config::get('driver') === 'mysql' ? '\_<?>_/' : '?'; 
+        return Config::get('driver') === 'mysql' ? '\_<???>_/' : '?';
     }
 }
