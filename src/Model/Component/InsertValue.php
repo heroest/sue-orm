@@ -13,11 +13,11 @@ class InsertValue implements ComponentInterface
 
     public function __construct(array $data)
     {
-        $components = [];
-        $components[] = SQLConst::SQL_LEFTP;
         if(!Util::is2DArray($data)) {
             $data = [$data];
         }
+        $components = [];
+        $components[] = SQLConst::SQL_LEFTP;
         $components[] = implode(',', array_keys($data[0]));
         $components[] = SQLConst::SQL_RIGHTP;
         $components[] = SQLConst::SQL_VALUES;

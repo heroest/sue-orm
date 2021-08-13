@@ -29,8 +29,8 @@ class Query
     /** @var ConnectionPool $connectionPool */
     private $connectionPool = null;
     /** @var ConnectionInterface $connection */
-    private $connection;
-    private $model = null;
+    private $connection = null;
+    private $modelClass = '';
 
     private $table = '';
     private $select = [];
@@ -42,10 +42,12 @@ class Query
     private $orderBy = [];
     private $groupBy = [];
     private $on = [];
+    private $lock = '';
 
-    public function __construct()
+    public function __construct($model_class = '')
     {
         $this->connectionPool = ConnectionPool::build();
+        $this->modelClass = $model_class;
     }
 
     /**
@@ -71,6 +73,16 @@ class Query
     {
         $this->connection = $this->connectionPool->addConnection($connection_name, $mixed);
         return $this;
+    }
+
+    /**
+     * 获取执行过的SQL
+     *
+     * @return array
+     */
+    public function getQueryLog()
+    {
+        return $this->getConnection()->getQueryLog();
     }
 
     /**
@@ -154,6 +166,18 @@ class Query
         return $this;
     }
 
+    public function whereExist()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_EXISTS, SQLConst::SQL_AND);
+        return $this;
+    }
+
+    public function orWhereExist()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_EXISTS, SQLConst::SQL_OR);
+        return $this;
+    }
+
     public function whereColumn($col_a, $op, $col_b, $boolean = SQLConst::SQL_AND)
     {
         $params = [$col_a, $op, new Expression($col_b)];
@@ -220,6 +244,15 @@ class Query
         return $this;
     }
 
+    /**
+     * SQL ON
+     *
+     * @param string $from
+     * @param string $op
+     * @param string $to
+     * @param bool $boolean
+     * @return self
+     */
     public function on($from, $op, $to, $boolean = SQLConst::SQL_AND)
     {
         if ($this->on) {
@@ -229,14 +262,36 @@ class Query
         return $this;
     }
 
+    /**
+     * SQL ON ... or .... 
+     *
+     * @param string $from
+     * @param string $op
+     * @param string $to
+     * @param bool $boolean
+     * @return self
+     */
     public function orOn($from, $op, $to)
     {
         return $this->on($from, $op, $to, SQLConst::SQL_OR);
     }
 
+    /**
+     * SQL OrderBy
+     *
+     * @param string $col
+     * @param string $direction
+     * @return self
+     */
     public function orderBy($col, $direction = 'asc')
     {
         $this->orderBy[] = "{$col} {$direction}";
+        return $this;
+    }
+
+    public function groupBy($col)
+    {
+        $this->groupBy[] = $col;
         return $this;
     }
 
@@ -267,6 +322,34 @@ class Query
         return $this->reorder($exression, '');
     }
 
+    /**
+     * 悲观锁
+     *
+     * @return self
+     */
+    public function lockForUpdate()
+    {
+        $this->lock = SQLConst::LOCK_FOR_UPDATE;
+        return $this;
+    }
+
+    /**
+     * 乐观锁
+     *
+     * @return self
+     */
+    public function sharedLock()
+    {
+        $this->lock = SQLConst::LOCK_IN_SHARE_MODE;
+        return $this;
+    }
+
+    /**
+     * 偏移offset
+     *
+     * @param int $offset
+     * @return self
+     */
     public function offset($offset)
     {
         $offset = (int) $offset;
@@ -278,11 +361,23 @@ class Query
         return $this;
     }
 
+    /**
+     * same as @method offset()
+     *
+     * @param int $offset
+     * @return self
+     */
     public function skip($offset)
     {
         return $this->offset($offset);
     }
 
+    /**
+     * 数据截取limit
+     *
+     * @param int $limit
+     * @return self
+     */
     public function limit($limit)
     {
         $limit = (int) $limit;
@@ -294,6 +389,12 @@ class Query
         return $this;
     }
 
+    /**
+     * same as @method limit()
+     *
+     * @param int $limit
+     * @return self
+     */
     public function take($limit)
     {
         return $this->limit($limit);
@@ -329,7 +430,7 @@ class Query
     }
 
     /**
-     * 批量查询数据（根据offset位置)
+     * 批量查询数据（根据offset递增做分页)
      *
      * @param integer $chunk_size
      * @return \Generator
@@ -351,7 +452,7 @@ class Query
     }
 
     /**
-     * 批量查询数据（根据上一次查询的最大id）
+     * 批量查询数据（根据上一次查询的最大id分页）
      *
      * @param integer $chunk_size
      * @param string $column
@@ -386,7 +487,19 @@ class Query
      */
     public function update(array $data)
     {
-        return $this->executeUpdateQuery($data);
+        $this->executeUpdateQuery($data);
+        return $this->affectedRows();
+    }
+
+    /**
+     * 删除数据
+     *
+     * @return int|float rows_affected
+     */
+    public function delete()
+    {
+        $this->executeDeleteQuery();
+        return $this->affectedRows();
     }
 
     /**
@@ -585,6 +698,11 @@ class Query
         $this->on = [];
     }
 
+    /**
+     * 执行查询SQL
+     *
+     * @return void
+     */
     private function executeSelectQuery()
     {
         $this->beforeQuery();
@@ -598,6 +716,11 @@ class Query
         }
     }
 
+    /**
+     * 拼接SQL
+     *
+     * @return void
+     */
     private function compileSelectQuery()
     {
         $components = [];
@@ -625,6 +748,12 @@ class Query
             $components = array_merge($components, $this->where);
         }
         
+        //GROUP BY
+        if ($this->groupBy) {
+            $components[] = SQLConst::SQL_GROUP_BY;
+            $components[] = implode(',', $this->groupBy);
+        }
+
         //ORDER
         if ($this->orderBy) {
             $components[] = SQLConst::SQL_ORDER_BY;
@@ -637,9 +766,19 @@ class Query
             $components[] = "{$this->offset},{$this->limit}";
         }
 
+        if ($this->lock) {
+            $components[] = $this->lock;
+        }
+
         return $this->assemble($components);
     }
 
+    /**
+     * 执行update操作
+     *
+     * @param array $data
+     * @return void
+     */
     private function executeUpdateQuery($data)
     {
         $this->beforeQuery();
@@ -649,6 +788,11 @@ class Query
         //UPDATE
         $components[] = SQLConst::SQL_UPDATE;
         $components[] = $this->table;
+
+        //JOIN
+        if ($this->join) {
+            $components = array_merge($components, array_values($this->join));
+        }
 
         //SET
         $components[] = SQLConst::SQL_SET;
@@ -672,9 +816,14 @@ class Query
             $components[] = $this->limit;
         }
 
-        list($sql, $params) = $this->assemble($components);
-        $this->getConnection()->query($sql, $params);
-        return $this->affectedRows = $this->getConnection()->affectedRows();
+        try {
+            list($sql, $params) = $this->assemble($components);
+            $this->getConnection()->query($sql, $params);
+        } catch (Exception $e) {
+            throw $e;
+        } finally {
+            $this->afterQuery();
+        }
     }
 
     /**
@@ -691,6 +840,7 @@ class Query
         array $data_updated = []
     )
     {
+        $this->beforeQuery();
         $components = [];
         $components[] = ($duplicate_handle === SQLConst::SQL_INSERT_IGNORE)
             ? SQLConst::SQL_INSERT_IGNORE
@@ -701,30 +851,69 @@ class Query
             $components[] = SQLConst::SQL_ON_DUPLCATE_KEY_UPDATE;
             $components[] = new SetValue($data_updated);
         }
-        list($sql, $params) = $this->assemble($components);
-        $this->getConnection()->query($sql, $params);
+        
+        try {
+            list($sql, $params) = $this->assemble($components);
+            $this->getConnection()->query($sql, $params);
+        } catch (Exception $e) {
+            throw $e;
+        } finally {
+            $this->afterQuery();
+        }
     }
 
+    /**
+     * 操作DELETE请求
+     *
+     * @return void
+     */
     private function executeDeleteQuery()
     {
-        //todo
-    }
+        $this->beforeQuery();
+        $components = [];
+        //delete
+        $components[] = SQLConst::SQL_DELETE;
+        $components[] = SQLConst::SQL_FROM;
+        $components[] = $this->table;
 
-    public function getQueryLog()
-    {
-        return $this->getConnection()->getQueryLog();
+        //where
+        if ($this->where) {
+            $components[] = SQLConst::SQL_WHERE;
+            $components = array_merge($components, $this->where);
+        }
+
+        //orderBy
+        if ($this->orderBy) {
+            $components[] = SQLConst::SQL_ORDER_BY;
+            $components = array_merge($components, $this->orderBy);
+        }
+
+        //limit
+        if ($this->limit) {
+            $components[] = SQLConst::SQL_LIMIT;
+            $components[] = $this->limit;
+        }
+
+        try {
+            list($sql, $params) = $this->assemble($components);
+            $this->getConnection()->query($sql, $params);
+        } catch (Exception $e) {
+            throw $e;
+        } finally {
+            $this->afterQuery();
+        }
     }
 
     private function beforeQuery()
     {
         $this->lastInsertId = '';
         $this->affectedRows = 0;
-        $this->aggregate = '';
     }
 
     private function afterQuery()
     {
-        //todo
+        $this->aggregate = '';
+        $this->lock = '';
     }
     
     /**
