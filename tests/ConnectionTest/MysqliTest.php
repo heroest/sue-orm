@@ -10,7 +10,7 @@ class MysqliTest extends AbstractTest
 {
     protected $driverName = 'mysqli';
 
-    public function testOpenWithLink()
+    public function testConnectionWithLink()
     {
         $link = new mysqli(
             self::$dbHost,
@@ -21,7 +21,7 @@ class MysqliTest extends AbstractTest
         );
         $link->set_charset(self::$charset);
         $pool = ConnectionPool::build();
-        $connection = $pool->addConnection('db1', $link);
+        $connection = $pool->addConnection($this->getTestName(), $link);
         $this->assertInstanceOf(self::MYSQLI_CONNECTION, $connection);
     }
 }

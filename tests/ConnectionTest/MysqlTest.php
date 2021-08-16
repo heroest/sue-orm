@@ -10,7 +10,7 @@ class MysqlTest extends AbstractTest
 {
     protected $driverName = 'mysql';
 
-    public function testOpenWithLink()
+    public function testConnectionWithLink()
     {
         $host = self::$dbHost . ':' . self::$dbPort;
         $link = mysql_connect(
@@ -23,7 +23,7 @@ class MysqlTest extends AbstractTest
         $charset = self::$charset;
         mysql_query("SET NAMES {$charset} COLLATE utf8mb4_unicode_ci", $link);
         $pool = ConnectionPool::build();
-        $connection = $pool->addConnection('db1', $link);
+        $connection = $pool->addConnection($this->getTestName(), $link);
         $this->assertInstanceOf(self::MYSQL_CONNECTION, $connection);
     }
 } 

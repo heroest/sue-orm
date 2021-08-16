@@ -10,7 +10,7 @@ class PdoTest extends AbstractTest
 {
     protected $driverName = 'pdo';
 
-    public function testOpenWithLink()
+    public function testConnectionWithLink()
     {
         $dbname = self::$dbName;
         $host = self::$dbHost;
@@ -31,7 +31,7 @@ class PdoTest extends AbstractTest
         ];
         $link = new PDO($dsn, self::$dbUsername, self::$dbPassword, $options);
         $pool = ConnectionPool::build();
-        $connection = $pool->addConnection('db1', $link);
+        $connection = $pool->addConnection($this->getTestName(), $link);
         $this->assertInstanceOf(self::PDO_CONNECTION, $connection);
     }
 }

@@ -5,10 +5,13 @@ namespace Sue\Tests\LegacyModel;
 use PHPUnit_Framework_TestCase;
 use Sue\LegacyModel\Common\Config;
 use Sue\LegacyModel\Driver\ConnectionPool;
+use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
 
 abstract class AbstractTest extends PHPUnit_Framework_TestCase
 {
+    private static $index = 0;
     protected $driverName;
+    /** @var ConnectionInterface $connection */
     protected static $connection;
 
     const MYSQL_CONNECTION = 'Sue\LegacyModel\Driver\Mysql\Connection';
@@ -23,31 +26,35 @@ abstract class AbstractTest extends PHPUnit_Framework_TestCase
     protected static $dbPassword = 'root';
     protected static $charset = 'utf8mb4';
 
+    /**
+     * 测试已创建的数据库链接来初始化connection
+     *
+     * @return void
+     */
+    abstract public function testConnectionWithLink();
 
-    abstract public function testOpenWithLink();
-
-    public function testOpenWithWrongLink()
+    public function tesConnectionWithWrongLink()
     {
         $this->setExpectedExceptionRegExp(
             'InvalidArgumentException',
             '/^(Unexpected type of paramenter).*/'
         );
         $pool = ConnectionPool::build();
-        $pool->addConnection('_db_fail', fopen('nul', 'w+'));
+        $pool->addConnection($this->getTestName(), fopen('nul', 'w+'));
     }
 
-    public function testOpenWithWrongUsername()
+    public function testConnectionWithWrongUsername()
     {
         $this->setExpectedException(self::DATABASE_EXCEPTION);
         $pool = ConnectionPool::build();
         $config = [
             'host' => self::$dbHost,
-            'username' => self::$dbUsername . '-fail',
+            'username' => self::$dbUsername . '-aabbcc',
             'password' => self::$dbPassword,
             'charset' => self::$charset,
             'port' => self::$dbPort,
         ];
-        $pool->addConnection('_fail_db', $config);
+        $pool->addConnection($this->getTestName(), $config);
     }
 
     public function testQuery()
@@ -56,28 +63,56 @@ abstract class AbstractTest extends PHPUnit_Framework_TestCase
         $this->assertTrue(is_array($result));
     }
 
-    protected function setUp()
+    public function testFailQuery()
     {
-        Config::set('driver', $this->driverName);
-        if (null === self::$connection) {
-            $pool = ConnectionPool::build();
-            $config = [
-                'host' => self::$dbHost,
-                'username' => self::$dbUsername,
-                'password' => self::$dbPassword,
-                'port' => self::$dbPort,
-                'dbname' => self::$dbName,
-                'charset' => self::$charset
-            ];
-            $name = $this->driverName . '_test';
-            self::$connection = $pool->addConnection($name, $config);
-        }
+        $this->setExpectedException(self::DATABASE_EXCEPTION);
+        self::$connection->query('FROM TABLE');
     }
 
-    public static function tearDownAfterClass()
+    public function testGetLink()
+    {
+        $link = self::$connection->getLink();
+        $boolean = is_resource($link) 
+            || ($link instanceof \mysqli) 
+            || ($link instanceof \PDO);
+        $this->assertTrue($boolean);
+    }
+
+    protected function setUp()
+    {
+        self::$connection = $this->buildConnection();
+    }
+
+    protected function tearDown()
     {
         self::$connection = null;
         $pool = ConnectionPool::build();
         $pool->destroy();
+    }
+
+    private function buildConnection()
+    {
+        Config::set('driver', $this->driverName);
+        $pool = ConnectionPool::build();
+        $config = [
+            'host' => self::$dbHost,
+            'username' => self::$dbUsername,
+            'password' => self::$dbPassword,
+            'port' => self::$dbPort,
+            'dbname' => self::$dbName,
+            'charset' => self::$charset
+        ];
+        $name = $this->getTestName();
+        return self::$connection = $pool->addConnection($name, $config);
+    }
+
+    /**
+     * 获取测试的命子
+     *
+     * @return void
+     */
+    protected function getTestName()
+    {
+        return "{$this->driverName}_test_" . ++self::$index;
     }
 }
