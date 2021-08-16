@@ -92,4 +92,11 @@ class ConnectionPool
         Config::setnx('default_connection', $connection_name);
         return $connection;
     }
+
+    public function destroy()
+    {
+        self::$instance = null;
+        $this->pool = [];
+        $this->connectionClass = '';
+    }
 }

@@ -46,7 +46,11 @@ class Connection implements ConnectionInterface
             $options = isset($config['options'])
                 ? array_merge($base_options, $config['options'])
                 : $base_options;
-            $this->link = new PDO($dsn, $config['username'], $config['password'], $options);
+            try {
+                $this->link = new PDO($dsn, $config['username'], $config['password'], $options);
+            } catch (Exception $e) {
+                throw new DatabaseException($e->getMessage(), $e->getCode(), $e);
+            }
         } else {
             throw new InvalidArgumentException('Unexpected type of paramenter: ' . gettype($mixed));
         }

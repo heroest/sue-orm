@@ -5,6 +5,7 @@ namespace Sue\LegacyModel\Driver\Mysqli;
 use mysqli;
 use mysqli_result;
 use Exception;
+use InvalidArgumentException;
 use BadMethodCallException;
 use Sue\LegacyModel\Common\Util;
 use Sue\LegacyModel\Common\DatabaseException;
@@ -27,7 +28,7 @@ class Connection implements ConnectionInterface
         if ($mixed instanceof mysqli) {
             $this->link = $mixed;
             return;
-        } else {
+        } elseif (is_array($mixed)) {
             $config = $mixed;
             $charset = isset($config['charset']) ? $config['charset'] : 'utf8mb4';
             $port = isset($config['port']) ? $config['port'] : 3306;
@@ -39,7 +40,13 @@ class Connection implements ConnectionInterface
                 $config['dbname'],
                 $port
             );
+            if ($this->link->connect_error) {
+                $this->throwException();
+            }
+
             $this->link->set_charset($charset);
+        } else {
+            throw new InvalidArgumentException('Unexpected type of paramenter: ' . gettype($mixed));
         }
     }
     
@@ -157,5 +164,12 @@ class Connection implements ConnectionInterface
     private function appendQueryLog($sql, array $params = [])
     {
         $this->queryLog[] = Util::compileSQL($sql, $params);
+    }
+
+    private function throwException()
+    {
+        $code = $this->link->connect_errno ?: 907;
+        $msg = $this->link->connect_errstr ?: 'Unknown Error';
+        throw new DatabaseException($msg, $code);
     }
 }

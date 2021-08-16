@@ -11,7 +11,8 @@ DB::addConnection('default', [
     'username' => 'root',
     'password' => 'root',
     'port' => 3306,
-    'dbname' => 'main'
+    'dbname' => 'main',
+    'charset' => 'utf8mb4'
 ]);
 
 set_error_handler(function ($error_no, $error_str, $error_file, $error_line) {
