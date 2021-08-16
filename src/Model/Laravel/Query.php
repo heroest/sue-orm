@@ -642,40 +642,85 @@ class Query
         if ($this->where and SQLConst::SQL_LEFTP !== end($this->where)) {
             $this->where[] = $boolean;
         }
-
         $count_params = count($params);
-        if (3 === $count_params) {
-            list($key, $op, $val) = $params;
-            if (null === $val) {
-                $this->where[] = new Expression("{$key} {$op} NULL");
-            } else {
-                $this->where[] = new Where([$op, $key, $val]);
-            }
-        } elseif (2 === $count_params) {
-            list($key, $val) = $params;
-            if (null === $val) {
-                $this->where[] = new Expression("{$key} IS NULL");
-            } else {
-                $op = $op ?: '=';
-                $this->where[] = new Where([$op, $key, $val]);
-            }
-        } elseif (1 === $count_params) {
+        if (1 === $count_params) {
             $param = $params[0];
-            if ($param instanceof Closure) {
-                $this->where[] = SQLConst::SQL_LEFTP;
-                $param($this);
-                $this->where[] = SQLConst::SQL_RIGHTP;
-            } elseif ($param instanceof Expression) {
+            if ($param instanceof Expression) {
                 $this->where[] = $param;
             } elseif (is_array($param)) {
-                foreach ($param as $condition) {
-                    call_user_func_array([$this, 'where'], $condition);
-                }
-            } else{
-                $this->where[] = new Expression($param);
+                array_map([$this, 'where'], $param);
+            } elseif ($param instanceof Closure) {
+                $this->whereClosure($op, $param);
+            } elseif ($param instanceof Query) {
+                $this->whereQuery($op, $param);
+            }
+        } else {
+            $key = $op = $val = null;
+            ($count_params === 3) 
+                ? (list($key, $op, $val) = $params) 
+                : (list($key, $val) = $params);
+            if ($val instanceof Closure) {
+                $this->whereClosure($op, $val);
+            } elseif ($val instanceof Query) {
+                $this->whereQuery($op, $val);
+            } else {
+                $this->where[] = new Where($op, $key, $val);
             }
         }
+
+        
     }
+
+    /**
+     * where-closure
+     *
+     * @param string $op
+     * @param Closure $closure
+     * @return void
+     */
+    private function whereClosure($op, Closure $closure)
+    {
+        $op_target = [
+            SQLConst::SQL_EXISTS, 
+            SQLConst::SQL_NOT_EXISTS, 
+            SQLConst::SQL_IN, 
+            SQLConst::SQL_NOT_IN
+        ];
+        if (in_array($op, $op_target)) {
+            $this->where[] = $op;
+            $this->where[] = SQLConst::SQL_LEFTP;
+            $closure($query = new self());
+            $this->where[] = $query;
+            $this->where[] = SQLConst::SQL_RIGHTP;
+        } else {
+            $this->where[] = SQLConst::SQL_LEFTP;
+            $closure($this);
+            $this->where[] = SQLConst::SQL_RIGHTP;
+        }
+    }
+
+    /**
+     * where-query
+     *
+     * @param string $sql
+     * @param Query $query
+     * @return void
+     */
+    private function whereQuery($op, Query $query)
+    {
+        $op_target = [
+            SQLConst::SQL_EXISTS, 
+            SQLConst::SQL_NOT_EXISTS, 
+            SQLConst::SQL_IN,
+            SQLConst::SQL_NOT_IN,
+        ];
+        if (in_array($op, $op_target)) {
+            $this->where[] = $op;
+            $this->where[] = SQLConst::SQL_LEFTP;
+            $this->where[] = $query;
+            $this->where[] = SQLConst::SQL_RIGHTP;
+        }
+    }   
 
     private function abstractJoin(array $params, $join_type = '')
     {
@@ -719,9 +764,9 @@ class Query
     /**
      * 拼接SQL
      *
-     * @return void
+     * @return array
      */
-    private function compileSelectQuery()
+    public function compileSelectQuery()
     {
         $components = [];
 
@@ -927,9 +972,18 @@ class Query
         $chunks = [];
         $params = [];
         foreach ($components as $component) {
-            $chunks[] = (string) $component;
-            if ($component instanceof ComponentInterface) {
-                $params = array_merge($params, $component->values());
+            if ($component instanceof Query) {
+                list($statement, $values) = $component->compileSelectQuery();
+            } elseif ($component instanceof ComponentInterface) {
+                $statement = (string) $component;
+                $values = $component->values();
+            } else {
+                $statement = (string) $component;
+                $values = null;
+            }
+            $chunks[] = $statement;
+            if ($values) {
+                $params = array_merge($params, $values);
             }
         }
         return [Util::implodeWithSpace($chunks), $params];

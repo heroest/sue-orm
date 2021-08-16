@@ -53,6 +53,12 @@ class Connection implements ConnectionInterface
     }
 
     /** @inheritDoc */
+    public function getLink()
+    {
+        return $this->link;
+    }
+
+    /** @inheritDoc */
     public function query($sql, $params = [])
     {
         try {

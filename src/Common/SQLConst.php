@@ -41,6 +41,6 @@ abstract class SQLConst
     const SQL_LEFT_JOIN = 'LEFT JOIN';
     const SQL_RIGHT_JOIN = 'RIGHT JOIN';
 
-    const LOCK_FOR_UPDATE = 'LOCK FOR UPDATE';
+    const LOCK_FOR_UPDATE = 'FOR UPDATE';
     const LOCK_IN_SHARE_MODE = 'LOCK IN SHARE MODE';
 }

@@ -12,34 +12,44 @@ class Where implements ComponentInterface
     private $values = [];
     private $statement = '';
     
-    public function __construct(array $params)
+    /**
+     * 构造where条件
+     *
+     * @param string|null $op
+     * @param string $key
+     * @param string|array|Expression|null $val
+     */
+    public function __construct($op, $key, $val)
     {
-        $op = strtoupper(array_shift($params));
-        $key = array_shift($params);
+        $op = strtoupper($op);
         $ph = Util::ph();
 
-        switch ($op) {
-            case SQLConst::SQL_IN:
-            case SQLConst::SQL_NOT_IN:
-                $this->values = $params;
-                $ph = implode(',', array_fill(0, count($params), $ph));
-                $this->statement = "{$key} {$op} ({$ph})";
+        switch (true) {
+            case null === $val:
+                $op = $op = $op ?: 'IS';
+                $this->statement = "{$key} {$op} NULL";
                 break;
 
-            case SQLConst::SQL_BETWEEN:
-            case SQLConst::SQL_NOT_BETWEEN:
-                $this->values = $params;
-                $this->statement = "{$key} {$op} {$ph} AND {$ph}";
+            case $val instanceof Expression:
+                $this->statement = "{$key} {$op} {$val}";
+                break;
+
+            case is_array($val): 
+                if (in_array($op, [SQLConst::SQL_IN, SQLConst::SQL_NOT_IN])) {
+                    $this->values = $val;
+                    $ph = implode(',', array_fill(0, count($val), $ph));
+                    $this->statement = "{$key} {$op} ({$ph})";
+                } elseif (in_array($op, [SQLConst::SQL_BETWEEN, SQLConst::SQL_NOT_BETWEEN])) {
+                    $this->values = $val;
+                    $this->statement = "{$key} {$op} {$ph} AND {$ph}";
+                }
                 break;
 
             default:
-                $param = array_shift($params);
-                if ($param instanceof Expression) {
-                    $this->statement = "{$key} {$op} {$param}";
-                } else {
-                    $this->values[] = $param;
-                    $this->statement = "{$key} {$op} {$ph}";
-                }
+                $this->values[] = $val;
+                $op = $op ?: '=';
+                $this->statement = "{$key} {$op} {$ph}";
+                break;
         }
     }
 
@@ -55,17 +65,16 @@ class Where implements ComponentInterface
 
     public static function normalizeParams(array $params, $op)
     {
-        $max_len = count($params);
         switch ($op) {
-            case '':
-                $max_len = 3;
-                break;
-
             case SQLConst::SQL_IN:
             case SQLConst::SQL_NOT_IN:
             case SQLConst::SQL_BETWEEN:
             case SQLConst::SQL_NOT_BETWEEN:
                 $max_len = 2;
+                break;
+
+            default:
+                $max_len = 3;
                 break;
         }
         return array_slice($params, 0, $max_len);

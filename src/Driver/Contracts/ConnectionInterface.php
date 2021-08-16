@@ -61,4 +61,11 @@ interface ConnectionInterface
      * @return array
      */
     public function getQueryLog();
+
+    /**
+     * 获取实际的数据库链接
+     *
+     * @return \mysqi|\PDO|resource
+     */
+    public function getLink();
 }
