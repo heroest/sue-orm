@@ -4,9 +4,9 @@ namespace Sue\Tests\LegacyModel\ConnectionTest;
 
 use PDO;
 use Sue\LegacyModel\Driver\ConnectionPool;
-use Sue\Tests\LegacyModel\AbstractTest;
+use Sue\Tests\LegacyModel\ConnectionTest\AbstractConnectionTest;
 
-class PdoTest extends AbstractTest
+class PdoTest extends AbstractConnectionTest
 {
     protected $driverName = 'pdo';
 

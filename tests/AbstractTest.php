@@ -26,58 +26,6 @@ abstract class AbstractTest extends PHPUnit_Framework_TestCase
     protected static $dbPassword = 'root';
     protected static $charset = 'utf8mb4';
 
-    /**
-     * 测试已创建的数据库链接来初始化connection
-     *
-     * @return void
-     */
-    abstract public function testConnectionWithLink();
-
-    public function tesConnectionWithWrongLink()
-    {
-        $this->setExpectedExceptionRegExp(
-            'InvalidArgumentException',
-            '/^(Unexpected type of paramenter).*/'
-        );
-        $pool = ConnectionPool::build();
-        $pool->addConnection($this->getTestName(), fopen('nul', 'w+'));
-    }
-
-    public function testConnectionWithWrongUsername()
-    {
-        $this->setExpectedException(self::DATABASE_EXCEPTION);
-        $pool = ConnectionPool::build();
-        $config = [
-            'host' => self::$dbHost,
-            'username' => self::$dbUsername . '-aabbcc',
-            'password' => self::$dbPassword,
-            'charset' => self::$charset,
-            'port' => self::$dbPort,
-        ];
-        $pool->addConnection($this->getTestName(), $config);
-    }
-
-    public function testQuery()
-    {
-        $result = self::$connection->query('SELECT 1');
-        $this->assertTrue(is_array($result));
-    }
-
-    public function testFailQuery()
-    {
-        $this->setExpectedException(self::DATABASE_EXCEPTION);
-        self::$connection->query('FROM TABLE');
-    }
-
-    public function testGetLink()
-    {
-        $link = self::$connection->getLink();
-        $boolean = is_resource($link) 
-            || ($link instanceof \mysqli) 
-            || ($link instanceof \PDO);
-        $this->assertTrue($boolean);
-    }
-
     protected function setUp()
     {
         self::$connection = $this->buildConnection();
@@ -90,7 +38,7 @@ abstract class AbstractTest extends PHPUnit_Framework_TestCase
         $pool->destroy();
     }
 
-    private function buildConnection()
+    protected function buildConnection()
     {
         Config::set('driver', $this->driverName);
         $pool = ConnectionPool::build();
@@ -103,11 +51,11 @@ abstract class AbstractTest extends PHPUnit_Framework_TestCase
             'charset' => self::$charset
         ];
         $name = $this->getTestName();
-        return self::$connection = $pool->addConnection($name, $config);
+        return $pool->addConnection($name, $config);
     }
 
     /**
-     * 获取测试的命子
+     * 获取测试的名字
      *
      * @return void
      */

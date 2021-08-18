@@ -4,9 +4,9 @@ namespace Sue\Tests\LegacyModel\ConnectionTest;
 
 use mysqli;
 use Sue\LegacyModel\Driver\ConnectionPool;
-use Sue\Tests\LegacyModel\AbstractTest;
+use Sue\Tests\LegacyModel\ConnectionTest\AbstractConnectionTest;
 
-class MysqliTest extends AbstractTest
+class MysqliTest extends AbstractConnectionTest
 {
     protected $driverName = 'mysqli';
 

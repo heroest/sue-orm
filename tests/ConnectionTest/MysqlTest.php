@@ -3,10 +3,10 @@
 namespace Sue\Tests\LegacyModel\ConnectionTest;
 
 use Sue\LegacyModel\Driver\ConnectionPool;
-use Sue\Tests\LegacyModel\AbstractTest;
+use Sue\Tests\LegacyModel\ConnectionTest\AbstractConnectionTest;
 
 
-class MysqlTest extends AbstractTest
+class MysqlTest extends AbstractConnectionTest
 {
     protected $driverName = 'mysql';
 
@@ -26,4 +26,4 @@ class MysqlTest extends AbstractTest
         $connection = $pool->addConnection($this->getTestName(), $link);
         $this->assertInstanceOf(self::MYSQL_CONNECTION, $connection);
     }
-} 
+}

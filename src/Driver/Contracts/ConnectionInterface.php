@@ -29,8 +29,10 @@ interface ConnectionInterface
 
     /**
      * 开启数据库事务
+     * 如果已处于事务中会抛出异常
      *
      * @return boolean
+     * @throws \BadMethodCallException
      */
     public function beginTransaction();
 
