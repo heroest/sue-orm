@@ -40,6 +40,7 @@ abstract class AbstractTest extends PHPUnit_Framework_TestCase
 
     protected function buildConnection()
     {
+        Config::destroy();
         Config::set('driver', $this->driverName);
         $pool = ConnectionPool::build();
         $config = [

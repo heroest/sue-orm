@@ -47,6 +47,7 @@ interface ConnectionInterface
      * 提交事务
      *
      * @return boolean
+     * @throws \BadMethodCallException
      */
     public function commit();
 
@@ -54,6 +55,7 @@ interface ConnectionInterface
      * 回滚事务
      *
      * @return void
+     * @throws \BadMethodCallException
      */
     public function rollback();
 

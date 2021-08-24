@@ -80,7 +80,9 @@ abstract class AbstractConnectionTest extends AbstractTest
         $link = self::$connection->getLink();
         switch (get_class(self::$connection)) {
             case self::MYSQL_CONNECTION:
-                $this->assertTrue(is_resource($link));
+                $boolean = is_resource($link) 
+                    and false !== stripos(get_resource_type($link), 'mysql');
+                $this->assertTrue($boolean);
                 break;
 
             case self::MYSQLI_CONNECTION:

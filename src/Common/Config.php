@@ -18,6 +18,11 @@ class Config
         self::$storage[$key] = $val;
     }
 
+    public static function destroy()
+    {
+        self::$storage = [];
+    }
+
     /**
      * 当key不存在的时候设置key
      *

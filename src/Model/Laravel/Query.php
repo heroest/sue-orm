@@ -220,9 +220,21 @@ class Query
         return $this;
     }
 
+    public function whereNotBetween()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_BETWEEN, SQLConst::SQL_AND);
+        return $this;
+    }
+
     public function orWhereBetween()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_BETWEEN, SQLConst::SQL_OR);
+        return $this;
+    }
+
+    public function orWhereNotBetween()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_BETWEEN, SQLConst::SQL_OR);
         return $this;
     }
 
@@ -283,12 +295,18 @@ class Query
      * @param string $direction
      * @return self
      */
-    public function orderBy($col, $direction = 'asc')
+    public function orderBy($col, $direction = 'ASC')
     {
         $this->orderBy[] = "{$col} {$direction}";
         return $this;
     }
 
+    /**
+     * SQL GroupBy
+     *
+     * @param string $col
+     * @return self
+     */
     public function groupBy($col)
     {
         $this->groupBy[] = $col;
@@ -547,6 +565,18 @@ class Query
     }
 
     /**
+     * 直接查询数据
+     *
+     * @param string $sql
+     * @param array $params
+     * @return bool|array
+     */
+    public function execute($sql, array $params)
+    {
+        return $this->getConnection()->query((string) $sql, $params);
+    }
+
+    /**
      * 开启数据库事务
      *
      * @return boolean
@@ -648,15 +678,23 @@ class Query
             if ($param instanceof Expression) {
                 $this->where[] = $param;
             } elseif (is_array($param)) {
-                array_map([$this, 'where'], $param);
+                if (Util::isAssoc($param)) {
+                    foreach ($param as $k => $v) {
+                        $this->where($k, $v);
+                    }
+                } elseif (Util::is2DArray($param)) {
+                    foreach ($param as $row) {
+                        call_user_func_array([$this, 'where'], $row);
+                    }
+                }
             } elseif ($param instanceof Closure) {
                 $this->whereClosure($op, $param);
             } elseif ($param instanceof Query) {
                 $this->whereQuery($op, $param);
             }
         } else {
-            $key = $op = $val = null;
-            ($count_params === 3) 
+            $key = $val = null;
+            ('' === $op and $count_params === 3) 
                 ? (list($key, $op, $val) = $params) 
                 : (list($key, $val) = $params);
             if ($val instanceof Closure) {

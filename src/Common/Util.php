@@ -84,6 +84,11 @@ class Util
         return $line;
     }
 
+    public static function isAssoc(array $data)
+    {
+        return (!array_key_exists(0, $data)) or array_keys($data) !== range(0, count($data) - 1);
+    }
+
     public static function is2DArray(array $values)
     {
         $pre = -1;
