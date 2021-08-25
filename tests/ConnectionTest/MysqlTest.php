@@ -8,7 +8,11 @@ use Sue\Tests\LegacyModel\ConnectionTest\AbstractConnectionTest;
 
 class MysqlTest extends AbstractConnectionTest
 {
-    protected $driverName = 'mysql';
+    public static function setUpBeforeClass()
+    {
+        self::$driverName = 'mysql';
+        parent::setUpBeforeClass();
+    }
 
     public function testConnectionWithLink()
     {
@@ -24,6 +28,6 @@ class MysqlTest extends AbstractConnectionTest
         mysql_query("SET NAMES {$charset} COLLATE utf8mb4_unicode_ci", $link);
         $pool = ConnectionPool::build();
         $connection = $pool->addConnection($this->getTestName(), $link);
-        $this->assertInstanceOf(self::MYSQL_CONNECTION, $connection);
+        $this->assertInstanceOf(self::MYSQL_CONNECTION, $connection, 'mysql link not matched ' . self::$driverName);
     }
 }

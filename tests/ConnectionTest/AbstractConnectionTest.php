@@ -82,15 +82,15 @@ abstract class AbstractConnectionTest extends AbstractTest
             case self::MYSQL_CONNECTION:
                 $boolean = is_resource($link) 
                     and false !== stripos(get_resource_type($link), 'mysql');
-                $this->assertTrue($boolean);
+                $this->assertTrue($boolean, 'mysql link not matched');
                 break;
 
             case self::MYSQLI_CONNECTION:
-                $this->assertInstanceOf('mysqli', $link);
+                $this->assertInstanceOf('mysqli', $link, 'mysqli link not matched');
                 break;
 
             case self::PDO_CONNECTION:
-                $this->assertInstanceOf('PDO', $link);
+                $this->assertInstanceOf('PDO', $link, 'pdo link not matched');
                 break;
         }
     }

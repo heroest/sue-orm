@@ -4,6 +4,7 @@ namespace Sue\LegacyModel\Driver;
 
 use InvalidArgumentException;
 use Sue\LegacyModel\Common\Config;
+use BadMethodCallException;
 use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
 
 class ConnectionPool
@@ -11,10 +12,11 @@ class ConnectionPool
     private static $instance = null;
     private $pool = [];
     private $connectionClass = '';
+    private $defaultConnection = null;
+    private $driver = '[null]';
 
-    private function __construct($connection_class)
+    private function __construct()
     {
-        $this->connectionClass = $connection_class;
     }
 
     /**
@@ -25,35 +27,46 @@ class ConnectionPool
      */
     public static function build()
     {
-        if (self::$instance) {
-            return self::$instance;
-        }
+        return self::$instance ?: self::$instance = new self();
+    }
 
-        if (null !== $driver = Config::get('driver')) {
-            $driver = strtolower($driver);
+    public function setDriver($driver)
+    {
+        if ($this->connectionClass) {
+            return false;
+        } elseif (null !== $driver) {
+            $this->driver = strtolower($driver);
         } else {
             foreach (['PDO', 'mysqli', 'mysql'] as $extension) {
                 if (extension_loaded($extension)) {
-                    $driver = strtolower($extension);
+                    $this->driver = strtolower($extension);
                     break;
                 }
             }
-            $driver = $driver ?: '[null]';
         }
         
-        switch ($driver) {
+        switch ($this->driver) {
             case 'mysql':
-                return self::$instance = new self('Sue\LegacyModel\Driver\Mysql\Connection');
+                $this->connectionClass = 'Sue\LegacyModel\Driver\Mysql\Connection';
+                break;
 
             case 'mysqli':
-                return self::$instance = new self('Sue\LegacyModel\Driver\Mysqli\Connection');
+                $this->connectionClass = 'Sue\LegacyModel\Driver\Mysqli\Connection';
+                break;
 
             case 'pdo':
-                return self::$instance = new self('Sue\LegacyModel\Driver\PDO\Connection');
+                $this->connectionClass = 'Sue\LegacyModel\Driver\PDO\Connection';
+                break;
             
             default:
                 throw new InvalidArgumentException("Unknown database driver: {$driver}");
         }
+        return true;
+    }
+
+    public function getDriver()
+    {
+        return $this->driver;
     }
 
     public function hasConnection($connection_name)
@@ -89,14 +102,32 @@ class ConnectionPool
         }
         $class = $this->connectionClass;
         $connection = $this->pool[$connection_name] = new $class($mixed);
-        Config::setnx('default_connection', $connection_name);
+        if (!$this->defaultConnection) {
+            $this->defaultConnection = $connection;
+        }
         return $connection;
     }
 
-    public function destroy()
+    /**
+     * 获取一个默认链接（第一个建立的链接)
+     *
+     * @return ConnectionInterface
+     * @throws BadMethodCallException
+     */
+    public function getDefaultConnection()
     {
-        self::$instance = null;
+        if ($this->defaultConnection) {
+            return $this->defaultConnection;
+        } else {
+            throw new BadMethodCallException('No connection found');
+        }
+    }
+
+    public function reset()
+    {
         $this->pool = [];
         $this->connectionClass = '';
+        $this->defaultConnection = null;
+        $this->driverName = '';
     }
 }

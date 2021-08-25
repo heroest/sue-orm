@@ -2,6 +2,7 @@
 
 namespace Sue\LegacyModel\Common;
 
+use Sue\LegacyModel\Driver\ConnectionPool;
 use Sue\LegacyModel\Model\Component\Expression;
 use Sue\LegacyModel\Common\SQLConst;
 
@@ -104,6 +105,17 @@ class Util
 
     public static function ph()
     {
-        return Config::get('driver') === 'mysql' ? '\_<???>_/' : '?';
+        $pool = ConnectionPool::build();
+        return 'mysql' === $pool->getDriver() ? '\_<???>_/' : '?';
+    }
+
+    public static function arrayColumn(array $list, $column_name)
+    {
+        return array_map(
+            function ($row) use ($column_name) {
+                return $row[$column_name];
+            }, 
+            $list
+        );
     }
 }

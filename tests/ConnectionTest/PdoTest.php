@@ -8,7 +8,11 @@ use Sue\Tests\LegacyModel\ConnectionTest\AbstractConnectionTest;
 
 class PdoTest extends AbstractConnectionTest
 {
-    protected $driverName = 'pdo';
+    public static function setUpBeforeClass()
+    {
+        self::$driverName = 'pdo';
+        parent::setUpBeforeClass();
+    }
 
     public function testConnectionWithLink()
     {
@@ -32,6 +36,6 @@ class PdoTest extends AbstractConnectionTest
         $link = new PDO($dsn, self::$dbUsername, self::$dbPassword, $options);
         $pool = ConnectionPool::build();
         $connection = $pool->addConnection($this->getTestName(), $link);
-        $this->assertInstanceOf(self::PDO_CONNECTION, $connection);
+        $this->assertInstanceOf(self::PDO_CONNECTION, $connection, 'PDO link not matched ' . self::$driverName);
     }
 }

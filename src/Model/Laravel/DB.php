@@ -4,7 +4,6 @@ namespace Sue\LegacyModel\Model\Laravel;
 
 use Sue\LegacyModel\Model\Component\Expression;
 use Sue\LegacyModel\Model\Laravel\Query;
-use Sue\LegacyModel\Common\Config;
 use Sue\LegacyModel\Driver\ConnectionPool;
 use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
 
@@ -21,11 +20,12 @@ class DB
      * 设置数据库驱动类型 (pdo, mysqli, mysql)
      *
      * @param string $driver
-     * @return void
+     * @return boolean
      */
     public static function setDrive($driver)
     {
-        return Config::set('driver', $driver);
+        $pool = ConnectionPool::build();
+        return $pool->setDriver($driver);
     }
 
     /**
@@ -136,8 +136,9 @@ class DB
      */
     private static function getConnection($connection_name = '')
     {
-        $connection_name = $connection_name ?: Config::get('default_connection', '');
         $pool = ConnectionPool::build();
-        return $pool->connection($connection_name);
+        return $connection_name
+            ? $pool->connection($connection_name) 
+            : $pool->getDefaultConnection();
     }
 }

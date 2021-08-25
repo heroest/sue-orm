@@ -3,14 +3,13 @@
 namespace Sue\Tests\LegacyModel;
 
 use PHPUnit_Framework_TestCase;
-use Sue\LegacyModel\Common\Config;
 use Sue\LegacyModel\Driver\ConnectionPool;
 use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
 
 abstract class AbstractTest extends PHPUnit_Framework_TestCase
 {
     private static $index = 0;
-    protected $driverName;
+    protected static $driverName;
     /** @var ConnectionInterface $connection */
     protected static $connection;
 
@@ -28,21 +27,20 @@ abstract class AbstractTest extends PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        self::$connection = $this->buildConnection();
+        self::$connection = self::buildConnection();
     }
 
     protected function tearDown()
     {
         self::$connection = null;
         $pool = ConnectionPool::build();
-        $pool->destroy();
+        $pool->reset();
     }
 
-    protected function buildConnection()
+    protected static function buildConnection()
     {
-        Config::destroy();
-        Config::set('driver', $this->driverName);
         $pool = ConnectionPool::build();
+        $pool->setDriver(self::$driverName);
         $config = [
             'host' => self::$dbHost,
             'username' => self::$dbUsername,
@@ -51,8 +49,27 @@ abstract class AbstractTest extends PHPUnit_Framework_TestCase
             'dbname' => self::$dbName,
             'charset' => self::$charset
         ];
-        $name = $this->getTestName();
+        $name = self::getTestName();
         return $pool->addConnection($name, $config);
+    }
+
+    public function testDriverMatchConnection()
+    {
+        $class = '';
+        switch (self::$driverName) {
+            case 'mysql':
+                $class = self::MYSQL_CONNECTION;
+                break;
+
+            case 'mysqli':
+                $class = self::MYSQLI_CONNECTION;
+                break;
+
+            case 'pdo':
+                $class = self::PDO_CONNECTION;
+                break;
+        }
+        $this->assertTrue(self::$connection instanceof $class, (self::$driverName . " use {$class}" ));
     }
 
     /**
@@ -60,8 +77,9 @@ abstract class AbstractTest extends PHPUnit_Framework_TestCase
      *
      * @return void
      */
-    protected function getTestName()
+    protected static function getTestName()
     {
-        return "{$this->driverName}_test_" . ++self::$index;
+        $driver = self::$driverName;
+        return "{$driver}_test_" . ++self::$index;
     }
 }

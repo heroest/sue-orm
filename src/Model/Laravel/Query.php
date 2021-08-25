@@ -9,7 +9,6 @@ use BadMethodCallException;
 use ReflectionMethod;
 use Sue\LegacyModel\Common\DatabaseException;
 use Sue\LegacyModel\Common\SQLConst;
-use Sue\LegacyModel\Common\Config;
 use Sue\LegacyModel\Common\Util;
 use Sue\LegacyModel\Driver\ConnectionPool;
 use Sue\LegacyModel\Driver\Contracts\ConnectionInterface;
@@ -119,7 +118,11 @@ class Query
     {
         $params = func_get_args();
         $params = is_array($params[0]) ? $params[0] : $params;
-        $this->select = array_merge($this->select, $params);
+        foreach ($params as $item) {
+            if (!in_array($item, $this->select)) {
+                $this->select[] = $item;
+            }
+        }
         return $this;
     }
 
@@ -134,50 +137,174 @@ class Query
         return $this->selectAggregate("COUNT({$column})");
     }
 
+    /**
+     * MAX
+     *
+     * @param string $column
+     * @return int|float|string
+     */
     public function max($column)
     {
         return $this->selectAggregate("MAX({$column})");
     }
 
+    /**
+     * MIN
+     *
+     * @param string $column
+     * @return int|float|string
+     */
     public function min($column = '*')
     {
         return $this->selectAggregate("MIN({$column})");
     }
 
+    /**
+     * AVERAGE
+     *
+     * @param string $column
+     * @return int|float
+     */
     public function avg($column)
     {
         return $this->selectAggregate("AVG({$column})");
     }
 
+    /**
+     * SUM
+     *
+     * @param string $column
+     * @return int|float
+     */
     public function sum($column)
     {
         return $this->selectAggregate("SUM({$column})");
     }
 
+    /**
+     * 基础where条件
+     *
+     * @return self
+     * ```php
+     * $query->where('age', 18); // WHERE age = 18;
+     * $query->where('age', '=', 18); // WHERE age = 18;
+     * 
+     * $query->where(['age', 18]); //WHERE age = 18
+     * $query->where(['age', '=', 18]); //where age = 18
+     * $query->where([['age', 18], ['id', 1]]); //where age = 18 AND id = 1
+     * $query->where(['age' => 18]); // WHERE age = 18
+     * 
+     * $query->where(function (Query $q) {
+     *      $q->where('age', '=', 18);
+     * }); // WHERE age = 18
+     * 
+     * $query->where('name', 'LIKE', 'Sue%'); //WHERE name LIKE 'Sue%'
+     * 
+     * $query->where(DB::raw("LENGTH('name') > 4")); //WHERE LENGTH('name') > 4
+     * ```
+     */
     public function where()
     {
         $this->abstractWhere(func_get_args(), '', SQLConst::SQL_AND);
         return $this;
     }
 
+    /**
+     * orWhere, 用法同where()，链式调用时会使用OR拼接
+     * 
+     * @see where()
+     * @return self
+     */
     public function orWhere()
     {
         $this->abstractWhere(func_get_args(), '', SQLConst::SQL_OR);
         return $this;
     }
 
+    /**
+     * WHERE EXIST
+     * 
+     * @param \Closure|Query $mixed
+     * 
+     * @return self
+     * 
+     * ```php
+     * $query
+     *      ->table('parent')
+     *      ->whereExist(function (Query $q) {
+     *          $q->table('child')->whereColumn('child.parent_id', '=', 'parent.id');
+     *      })->get();
+     * 
+     * 
+     * $sub_query = DB::table('child')->whereColumn('child.parent_id', '=', 'parent.id');
+     * $query
+     *      ->table('parent')
+     *      ->whereExist($sub_query)
+     *      ->get();
+     * ```
+     */
     public function whereExist()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_EXISTS, SQLConst::SQL_AND);
         return $this;
     }
 
+    /**
+     * orWhereExist用法同whereExist，链式调用时会使用OR拼接
+     * 
+     * @param \Closure|Query $mixed
+     * 
+     * @return self
+     */
     public function orWhereExist()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_EXISTS, SQLConst::SQL_OR);
+        return $this;
+    }
+
+    /**
+     * whereNotExist用法同whereExist
+    * 
+     * @param \Closure|Query $mixed
+     * 
+     * @return self
+     */
+    public function whereNotExist()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_EXISTS, SQLConst::SQL_AND);
+        return $this;
+    }
+
+    /**
+     * orWhereNotExist用法同whereExists, 链式调用时会使用OR拼接
+     * 
+     * @param \Closure|Query $mixed
+     * 
+     * @return self
+     */
+    public function orWhereNotExist()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_EXISTS, SQLConst::SQL_OR);
         return $this;
     }
 
+    /**
+     * where-column
+     *
+     * @param string $col_a
+     * @param string $op
+     * @param string $col_b
+     * @param string $boolean
+     * @return self
+     * 
+     * ```php
+     * //WHERE user.created_time = user.updated_time
+     * $query->table('user')->whereColumn('user.created_time', '=', 'user.updated_time');
+     * 
+     * //WHERE user.created_time < user.updated_time
+     * $query->table('user')->whereColumn('user.created_time', '<', 'user.updated_time');
+     * ```
+     */
     public function whereColumn($col_a, $op, $col_b, $boolean = SQLConst::SQL_AND)
     {
         $params = [$col_a, $op, new Expression($col_b)];
@@ -185,53 +312,137 @@ class Query
         return $this;
     }
 
+    /**
+     * orWhereColumn，用法同whereColumn,链式调用时会使用OR拼接
+     *
+     * @param string $col_a
+     * @param string $op
+     * @param string $col_b
+     * @return self
+     */
     public function orWhereColumn($col_a, $op, $col_b)
     {
         return $this->whereColumn($col_a, $op, $col_b, SQLConst::SQL_OR);
     }
 
+    /**
+     * whereIn
+     * 
+     * @param string $key
+     * @param \Closure|Query|array $value
+     * 
+     * @return self
+     * 
+     * ```php
+     * $query->whereIn('id', [1, 2, 3, 4]); //WHERE id IN (1, 2, 3, 4)
+     * 
+     * $query->WhereIn('id', function ($q) { $q->table('table_b')->select('id'])});
+     * 
+     * $sub_query = DB::table('table_b')->select('id');
+     * $query->WhereIn('id', $sub_query);
+     * ```
+     */
     public function whereIn()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_IN, SQLConst::SQL_AND);
         return $this;
     }
 
+    /**
+     * orWhereIn, 用法同whereIn, 链式调用时会使用OR拼接
+     * 
+     * @param string $key
+     * @param \Closure|Query|array $value
+     *
+     * @return self
+     */
     public function orWhereIn()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_IN, SQLConst::SQL_OR);
         return $this;
     }
 
+    /**
+     * whereNotIn， 用法同whereIn
+     * 
+     * @param string $key
+     * @param \Closure|Query|array $value
+     *
+     * @return self
+     */
     public function whereNotIn()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_IN, SQLConst::SQL_AND);
         return $this;
     }
 
+    /**
+     * whereNotIn，用法同whereNotIn, 链式调用时会使用OR拼接
+     * 
+     * @param string $key
+     * @param \Closure|Query|array $value
+     *
+     * @return self
+     */
     public function orWhereNotIn()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_IN, SQLConst::SQL_OR);
         return $this;
     }
 
+    /**
+     * whereBetween
+     *  
+     * @param string $key
+     * @param array $between
+     * 
+     * @return self
+     * ```php
+     * $query->whereBetween('age', [11, 18]); //WHERE age BETWEEN 11 AND 18
+     * ```
+     */
     public function whereBetween()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_BETWEEN, SQLConst::SQL_AND);
         return $this;
     }
 
-    public function whereNotBetween()
-    {
-        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_BETWEEN, SQLConst::SQL_AND);
-        return $this;
-    }
-
+    /**
+     * 用法同whereBetween, 链式调用时会使用OR拼接
+     *  
+     * @param string $key
+     * @param array $between
+     * 
+     * @return self
+     */
     public function orWhereBetween()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_BETWEEN, SQLConst::SQL_OR);
         return $this;
     }
 
+    /**
+     * whereNotBetween
+     *  
+     * @param string $key
+     * @param array $between
+     * 
+     * @return self
+     * ```php
+     * $query->whereNotBetween('age', [11, 18]); //WHERE age NOT BETWEEN 11 AND 18
+     * ```
+     */
+    public function whereNotBetween()
+    {
+        $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_BETWEEN, SQLConst::SQL_AND);
+        return $this;
+    }
+
+    /**
+     * orWhereNotBetween, 用法同whereNotBetween, 链式调用时会使用OR拼接
+     *
+     * @return void
+     */
     public function orWhereNotBetween()
     {
         $this->abstractWhere(func_get_args(), SQLConst::SQL_NOT_BETWEEN, SQLConst::SQL_OR);
@@ -259,23 +470,16 @@ class Query
     /**
      * SQL ON
      *
-     * @param string $from
-     * @param string $op
-     * @param string $to
-     * @param bool $boolean
      * @return self
      */
-    public function on($from, $op, $to, $boolean = SQLConst::SQL_AND)
+    public function on()
     {
-        if ($this->on) {
-            $this->on[] = $boolean;
-        }
-        $this->on[] = "{$from} {$op} {$to}";
+        $this->abstractOn(func_get_args(), SQLConst::SQL_AND);
         return $this;
     }
 
     /**
-     * SQL ON ... or .... 
+     * orOn, 用法同on, 链式调用时会使用OR拼接
      *
      * @param string $from
      * @param string $op
@@ -283,9 +487,10 @@ class Query
      * @param bool $boolean
      * @return self
      */
-    public function orOn($from, $op, $to)
+    public function orOn()
     {
-        return $this->on($from, $op, $to, SQLConst::SQL_OR);
+        $this->abstractOn(func_get_args(), SQLConst::SQL_OR);
+        return $this;
     }
 
     /**
@@ -314,7 +519,7 @@ class Query
     }
 
     /**
-     * 重新排序
+     * 重置并重新排序
      *
      * @param string $col
      * @param string $direction
@@ -335,9 +540,9 @@ class Query
     public function inRandomOrder($column_weight = '')
     {
         $exression = $column_weight 
-            ? new Expression("-LOG(1- RAND())/{$column_weight}")
+            ? new Expression("(-LOG(1- RAND())/{$column_weight} + 1)")
             : new Expression('RAND()');
-        return $this->reorder($exression, '');
+        return $this->reorder($exression, 'ASC');
     }
 
     /**
@@ -380,7 +585,7 @@ class Query
     }
 
     /**
-     * same as @method offset()
+     * same as offset()
      *
      * @param int $offset
      * @return self
@@ -408,7 +613,7 @@ class Query
     }
 
     /**
-     * same as @method limit()
+     * same as limit()
      *
      * @param int $limit
      * @return self
@@ -428,11 +633,18 @@ class Query
         return $this->executeSelectQuery();
     }
 
+
+    /**
+     * 获取一个字段的值
+     *
+     * @param string $column
+     * @return array
+     */
     public function pluck($column)
     {
         $this->select = [$column];
         $result = $this->executeSelectQuery();
-        return $result ? array_values($result) : [];
+        return $result ? Util::arrayColumn($result, $column) : [];
     }
 
     /**
@@ -476,15 +688,15 @@ class Query
      * @param string $column
      * @return \Generator
      */
-    public function eachByColumn($chunk_size = 100, $column = 'id')
+    public function eachByColumn($chunk_size = 100, $column)
     {
-        $this->limit($chunk_size = (int) $chunk_size);
+        $this->limit($chunk_size = (int) $chunk_size)->reorder($column, 'ASC');
         $condition = $this->where;
         $last_id = '';
         do {
             $count = 0;
             $this->where = $condition;
-            $this->where($column, '>', $last_id);
+            if ('' !== $last_id) $this->where($column, '>', $last_id);
             if ($result = $this->executeSelectQuery()) {
                 foreach ($result as $row) {
                     $count++;
@@ -648,13 +860,12 @@ class Query
      *
      * @return ConnectionInterface
      */
-    private function getConnection()
+    public function getConnection()
     {
         if ($this->connection) {
             return $this->connection;
         } else {
-            $default = Config::get('default_connection', '');
-            return $this->connection = $this->connectionPool->connection($default);
+            return $this->connection = $this->connectionPool->getDefaultConnection();
         }
     }
 
@@ -678,14 +889,17 @@ class Query
             if ($param instanceof Expression) {
                 $this->where[] = $param;
             } elseif (is_array($param)) {
+                $callable = [$this, 'where'];
                 if (Util::isAssoc($param)) {
                     foreach ($param as $k => $v) {
-                        $this->where($k, $v);
+                        call_user_func_array($callable, [$k, $v]);
                     }
                 } elseif (Util::is2DArray($param)) {
                     foreach ($param as $row) {
-                        call_user_func_array([$this, 'where'], $row);
+                        call_user_func_array($callable, $row);
                     }
+                } else {
+                    call_user_func_array($callable, $param);
                 }
             } elseif ($param instanceof Closure) {
                 $this->whereClosure($op, $param);
@@ -705,8 +919,6 @@ class Query
                 $this->where[] = new Where($op, $key, $val);
             }
         }
-
-        
     }
 
     /**
@@ -772,6 +984,11 @@ class Query
                 $this->on($from, $op, $to);
                 break;
 
+            case 2:
+                list($from, $to) = $params;
+                $this->on($from, '=', $to);
+                break;
+
             case 1:
                 $closure = current($params);
                 $closure($this);
@@ -779,6 +996,35 @@ class Query
         }
         $this->join[$joined] = new Join($joined, $join_type, implode(' ', $this->on));
         $this->on = [];
+    }
+
+    private function abstractOn(array $params, $boolean = SQLConst::SQL_AND)
+    {
+        if ($this->on and SQLConst::SQL_LEFTP !== end($this->on)) {
+            $this->on[] = $boolean;
+        }
+
+        $params = array_slice($params, 0, 3);
+        switch ($count_params = count($params)) {
+            case 1:
+                $param = current($params);
+                if ($param instanceof Closure) {
+                    $this->on[] = SQLConst::SQL_LEFTP;
+                    $param($this);
+                    $this->on[] = SQLConst::SQL_RIGHTP;
+                }
+                break;
+
+            default:
+                if (3 === $count_params) {
+                    list($key, $op, $val) = $params;
+                } else {
+                    list($key, $val) = $params;
+                    $op = '=';
+                }
+                $this->on[] = "{$key} {$op} {$val}";
+                break;
+        }
     }
 
     /**
@@ -800,9 +1046,9 @@ class Query
     }
 
     /**
-     * 拼接SQL
+     * 组装SELECT查询
      *
-     * @return array
+     * @return array(string|array)
      */
     public function compileSelectQuery()
     {
@@ -865,7 +1111,25 @@ class Query
     private function executeUpdateQuery($data)
     {
         $this->beforeQuery();
+        try {
+            list($sql, $params) = $this->compileUpdateQuery($data);
+            $this->getConnection()->query($sql, $params);
+        } catch (Exception $e) {
+            throw $e;
+        } finally {
+            $this->afterQuery();
+        }
+    }
 
+    /**
+     * 组装UPDATE查询语句
+     * 
+     * @param $data
+     *
+     * @return array(string|array)
+     */
+    public function compileUpdateQuery(array $data)
+    {
         $components = [];
 
         //UPDATE
@@ -899,14 +1163,7 @@ class Query
             $components[] = $this->limit;
         }
 
-        try {
-            list($sql, $params) = $this->assemble($components);
-            $this->getConnection()->query($sql, $params);
-        } catch (Exception $e) {
-            throw $e;
-        } finally {
-            $this->afterQuery();
-        }
+        return $this->assemble($components);
     }
 
     /**
@@ -953,6 +1210,23 @@ class Query
     private function executeDeleteQuery()
     {
         $this->beforeQuery();
+        try {
+            list($sql, $params) = $this->compileDeleteQuery();
+            $this->getConnection()->query($sql, $params);
+        } catch (Exception $e) {
+            throw $e;
+        } finally {
+            $this->afterQuery();
+        }
+    }
+
+    /**
+     * 组装Delete语句
+     *
+     * @return void
+     */
+    public function compileDeleteQuery()
+    {
         $components = [];
         //delete
         $components[] = SQLConst::SQL_DELETE;
@@ -977,14 +1251,7 @@ class Query
             $components[] = $this->limit;
         }
 
-        try {
-            list($sql, $params) = $this->assemble($components);
-            $this->getConnection()->query($sql, $params);
-        } catch (Exception $e) {
-            throw $e;
-        } finally {
-            $this->afterQuery();
-        }
+        return $this->assemble($components);
     }
 
     private function beforeQuery()

@@ -24,7 +24,7 @@ class Join implements ComponentInterface
         return $this->statement;
     }
 
-    public static function normalizeParams(array $params, $join_type)
+    public static function normalizeParams(array $params)
     {
         $max_len = 4;
         return array_slice($params, 0, $max_len);

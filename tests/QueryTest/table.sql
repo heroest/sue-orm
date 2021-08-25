@@ -1,22 +1,3 @@
-/*
- Navicat Premium Data Transfer
-
- Source Server         : 本地
- Source Server Type    : MySQL
- Source Server Version : 50726
- Source Host           : localhost:3306
- Source Schema         : main
-
- Target Server Type    : MySQL
- Target Server Version : 50726
- File Encoding         : 65001
-
- Date: 24/08/2021 11:57:11
-*/
-
-SET NAMES utf8mb4;
-SET FOREIGN_KEY_CHECKS = 0;
-
 -- ----------------------------
 -- Table structure for user
 -- ----------------------------
@@ -40,4 +21,4 @@ INSERT INTO `user` VALUES (3, 'ccc', 31, '2021-08-24 11:56:53', '2021-08-24 11:5
 INSERT INTO `user` VALUES (4, 'ddd', 41, '2021-08-24 11:56:53', '2021-08-24 11:56:53');
 INSERT INTO `user` VALUES (5, '99', 99, '2021-08-24 11:56:53', '2021-08-24 11:56:53');
 
-SET FOREIGN_KEY_CHECKS = 1;
+

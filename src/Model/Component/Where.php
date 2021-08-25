@@ -40,7 +40,7 @@ class Where implements ComponentInterface
                     $ph = implode(',', array_fill(0, count($val), $ph));
                     $this->statement = "{$key} {$op} ({$ph})";
                 } elseif (in_array($op, [SQLConst::SQL_BETWEEN, SQLConst::SQL_NOT_BETWEEN])) {
-                    $this->values = $val;
+                    $this->values = array_slice($val, 0, 2);
                     $this->statement = "{$key} {$op} {$ph} AND {$ph}";
                 }
                 break;

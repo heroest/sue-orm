@@ -8,7 +8,11 @@ use Sue\Tests\LegacyModel\ConnectionTest\AbstractConnectionTest;
 
 class MysqliTest extends AbstractConnectionTest
 {
-    protected $driverName = 'mysqli';
+    public static function setUpBeforeClass()
+    {
+        self::$driverName = 'mysqli';
+        parent::setUpBeforeClass();
+    }
 
     public function testConnectionWithLink()
     {
@@ -22,6 +26,6 @@ class MysqliTest extends AbstractConnectionTest
         $link->set_charset(self::$charset);
         $pool = ConnectionPool::build();
         $connection = $pool->addConnection($this->getTestName(), $link);
-        $this->assertInstanceOf(self::MYSQLI_CONNECTION, $connection);
+        $this->assertInstanceOf(self::MYSQLI_CONNECTION, $connection, 'mysqli link not matched: ' . self::$driverName);
     }
 }
