@@ -36,7 +36,7 @@ class DB
      */
     public static function connection($connection_name)
     {
-        return new Query($connection_name);
+        return (new Query())->connection($connection_name);
     }
 
     /**

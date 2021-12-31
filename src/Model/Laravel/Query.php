@@ -1030,7 +1030,7 @@ class Query
     /**
      * 执行查询SQL
      *
-     * @return void
+     * @return array|bool
      */
     private function executeSelectQuery()
     {
